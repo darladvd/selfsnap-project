@@ -37,6 +37,7 @@
               :style="{
                 ...activeSlotStyle,
                 filter: previewCssFilter,
+                transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
               }"
             />
 
@@ -316,18 +317,23 @@ function drawVideoCoverToCanvas(
   const vw = video.videoWidth;
   const vh = video.videoHeight;
 
-  // Calculate scale to cover the output area (not contain)
   const scale = Math.max(outW / vw, outH / vh);
-  const sw = vw * scale;
-  const sh = vh * scale;
+  const dw = vw * scale;
+  const dh = vh * scale;
 
-  // Center the scaled video
-  const dx = (outW - sw) / 2;
-  const dy = (outH - sh) / 2;
+  const dx = (outW - dw) / 2;
+  const dy = (outH - dh) / 2;
 
   ctx.save();
+
+  if (facingMode.value === "user") {
+    ctx.translate(outW, 0);
+    ctx.scale(-1, 1);
+  }
+
   ctx.filter = canvasFilterString(filterMode);
-  ctx.drawImage(video, dx, dy, sw, sh);
+  ctx.drawImage(video, dx, dy, dw, dh);
+
   ctx.restore();
 }
 
