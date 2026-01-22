@@ -91,6 +91,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
+    (img as any).decoding = "async";
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
     img.src = src;
@@ -200,12 +201,19 @@ async function compose() {
   composedUrl.value = canvas.toDataURL("image/png");
 }
 
-function download() {
-  if (!composedUrl.value) return;
-  const a = document.createElement("a");
-  a.href = composedUrl.value;
-  a.download = `selfsnap-${dateStr.value}.png`;
-  a.click();
+async function download() {
+  const canvas = canvasEl.value;
+  if (!canvas) return;
+
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `selfsnap-${dateStr.value}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, "image/png");
 }
 
 function tryAgain() {
