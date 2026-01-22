@@ -29,16 +29,15 @@
 
             <!-- Live camera (FULL), but clipped to active slot -->
             <video
-              ref="videoEl"
-              autoplay
-              playsinline
-              muted
-              class="absolute inset-0 w-full h-full object-cover"
-              :style="{
+            ref="videoEl"
+            autoplay
+            playsinline
+            muted
+            class="absolute object-cover"
+            :style="{
+                ...activeSlotStyle,
                 filter: previewCssFilter,
-                clipPath: activeClipPath,
-                WebkitClipPath: activeClipPath,
-              }"
+            }"
             />
 
             <!-- SLOT CONTENT (captured shots live here) + guides -->
@@ -53,7 +52,12 @@
                 />
 
                 <!-- If empty slot, show faint placeholder (so frame doesn’t look “holey”) -->
-                <div v-else class="absolute inset-0 bg-white/35"></div>
+                <!-- If empty slot and NOT active -> show faint placeholder -->
+                <div
+                v-else-if="idx !== activeSlotIndex"
+                class="absolute inset-0 bg-white/35"
+                ></div>
+
 
                 <!-- Border guides -->
                 <div
@@ -84,11 +88,6 @@
             <!-- Progress -->
             <div class="absolute top-3 left-3 text-xs px-3 py-1 rounded-full bg-white/85">
               Shot {{ Math.min(shots.length + 1, 4) }} / 4
-            </div>
-
-            <!-- Logo badge (UI only) -->
-            <div class="absolute top-3 right-3 text-xs px-3 py-1 rounded-full bg-white/85">
-              d!
             </div>
           </div>
 
@@ -174,29 +173,23 @@ const slotStyles = computed(() =>
   }))
 );
 
+const activeSlotStyle = computed(() => {
+  const st = slotStyles.value[activeSlotIndex.value];
+  if (!st) return {};
+  return {
+    left: st.left,
+    top: st.top,
+    width: st.width,
+    height: st.height,
+  };
+});
+
 /**
  * Active slot for preview:
  * - if running: currentShotIndex
  * - if not running: show slot 0 (so user sees where they’ll be framed)
  */
 const activeSlotIndex = computed(() => (isRunning.value ? currentShotIndex.value : 0));
-
-/**
- * Clip-path that reveals the FULL-SIZE video only inside the active slot.
- * This is the key fix for the “preview is wrong again” problem.
- */
-const activeClipPath = computed(() => {
-  const s = slotsPx.value[activeSlotIndex.value];
-  if (!s) return "inset(0 0 0 0)";
-
-  const top = (s.y / FRAME_H) * 100;
-  const left = (s.x / FRAME_W) * 100;
-  const bottom = 100 - ((s.y + s.h) / FRAME_H) * 100;
-  const right = 100 - ((s.x + s.w) / FRAME_W) * 100;
-
-  // sharp corners (no "round")
-  return `inset(${top}% ${right}% ${bottom}% ${left}%)`;
-});
 
 const previewCssFilter = computed(() => {
   if (settings.filter === "bw") return "grayscale(1)";
@@ -229,8 +222,9 @@ async function startCamera() {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
         facingMode: facingMode.value,
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
+        width: { ideal: 720 },
+        height: { ideal: 1280 },
+        aspectRatio: { ideal: 9 / 16 },
       },
       audio: false,
     });
@@ -299,22 +293,9 @@ function drawVideoCoverToCanvas(
   ctx.restore();
 }
 
-async function captureOneShot(shotIndex: number): Promise<string> {
+async function captureOneShot(_: number): Promise<string> {
   const v = videoEl.value;
   if (!v) throw new Error("Video not ready");
-
-  const frameCanvas = document.createElement("canvas");
-  frameCanvas.width = FRAME_W;
-  frameCanvas.height = FRAME_H;
-
-  const fctx = frameCanvas.getContext("2d");
-  if (!fctx) throw new Error("Frame canvas context missing");
-
-  // Full-frame render (this matches the <video> sizing)
-  drawVideoCoverToCanvas(fctx, v, FRAME_W, FRAME_H, settings.filter);
-
-  const s = slotsPx.value[shotIndex];
-  if (!s) throw new Error("Missing slot for shot");
 
   const outW = 1080;
   const outH = 1440;
@@ -323,10 +304,12 @@ async function captureOneShot(shotIndex: number): Promise<string> {
   shotCanvas.width = outW;
   shotCanvas.height = outH;
 
-  const sctx = shotCanvas.getContext("2d");
-  if (!sctx) throw new Error("Shot canvas context missing");
+  const ctx = shotCanvas.getContext("2d");
+  if (!ctx) throw new Error("Shot canvas context missing");
 
-  sctx.drawImage(frameCanvas, s.x, s.y, s.w, s.h, 0, 0, outW, outH);
+  // Draw video "cover" into 3:4 directly (matches preview)
+  drawVideoCoverToCanvas(ctx, v, outW, outH, settings.filter);
+
   return shotCanvas.toDataURL("image/jpeg", 0.92);
 }
 
@@ -351,10 +334,8 @@ async function startSequence() {
       currentShotIndex.value = i;
 
       await runCountdown(settings.timerSeconds);
-      const shot = await captureOneShot(i);
-
-      // store immediately so it appears in the slot BEFORE moving on
-      shots.value = [...shots.value, shot];
+        const shot = await captureOneShot(i);
+        shots.value = [...shots.value, shot];
 
       await sleep(250);
     }
