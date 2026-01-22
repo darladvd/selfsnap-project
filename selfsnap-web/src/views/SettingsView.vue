@@ -83,6 +83,8 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 type Frame = { s3Key: string; name?: string | null; createdAt?: string | null; url: string };
+type FilterMode = "none" | "bw" | "sepia";
+type StoredSettings = { frameUrl: string; filter: FilterMode; timerSeconds: number };
 
 const router = useRouter();
 const frames = ref<Frame[]>([]);
@@ -90,23 +92,48 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 
 const selectedFrameKey = ref("");
-const filter = ref<"none" | "bw" | "sepia">("none");
+const filter = ref<FilterMode>("none");
 const timerSeconds = ref<number>(3);
 const understand = ref(false);
 
 const selectedFrame = computed(() => frames.value.find((f) => f.s3Key === selectedFrameKey.value));
 const canGo = computed(() => understand.value && !!selectedFrame.value);
 
+function readStoredSettings(): Partial<StoredSettings> {
+  try {
+    const raw = sessionStorage.getItem("selfsnap.settings");
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return {
+      frameUrl: typeof parsed.frameUrl === "string" ? parsed.frameUrl : "",
+      filter: (["none", "bw", "sepia"].includes(parsed.filter) ? parsed.filter : "none") as FilterMode,
+      timerSeconds: typeof parsed.timerSeconds === "number" ? parsed.timerSeconds : 3,
+    };
+  } catch {
+    return {};
+  }
+}
+
 async function loadFrames() {
   loading.value = true;
   error.value = null;
+
   try {
     const base = import.meta.env.VITE_API_BASE;
     if (!base) throw new Error("Missing VITE_API_BASE in .env.local");
+
     const res = await fetch(`${base}/frames`, { cache: "no-store" });
     if (!res.ok) throw new Error(`Frames API error: ${res.status}`);
+
     const data = await res.json();
     frames.value = (data.frames ?? []).filter((f: Frame) => f?.s3Key && !f.s3Key.endsWith("/"));
+
+    // After frames load, try to restore the previously selected frame by URL match
+    const stored = readStoredSettings();
+    if (stored.frameUrl) {
+      const match = frames.value.find((f) => f.url === stored.frameUrl);
+      if (match) selectedFrameKey.value = match.s3Key;
+    }
   } catch (e: any) {
     error.value = e?.message ?? "Failed to load frames.";
   } finally {
@@ -115,16 +142,25 @@ async function loadFrames() {
 }
 
 function go() {
-  sessionStorage.setItem(
-    "selfsnap_settings",
-    JSON.stringify({
-      frameUrl: selectedFrame.value!.url,
-      filter: filter.value,
-      timerSeconds: timerSeconds.value,
-    })
-  );
+  if (!selectedFrame.value) return;
+
+  const payload: StoredSettings = {
+    frameUrl: selectedFrame.value.url,
+    filter: filter.value,
+    timerSeconds: timerSeconds.value,
+  };
+
+  // ✅ Use the same key Booth/Result expects
+  sessionStorage.setItem("selfsnap.settings", JSON.stringify(payload));
   router.push("/booth");
 }
 
-onMounted(loadFrames);
+onMounted(() => {
+  // Preload filter/timer from storage (frameKey restored after frames fetch)
+  const stored = readStoredSettings();
+  if (stored.filter) filter.value = stored.filter;
+  if (stored.timerSeconds) timerSeconds.value = stored.timerSeconds;
+
+  loadFrames();
+});
 </script>
