@@ -1,7 +1,6 @@
 <template>
   <div class="min-h-screen bg-sky-200 flex items-center justify-center p-4">
-    <div class="w-full max-w-6xl grid gap-6 lg:grid-cols-2">
-      <!-- Left: Result preview -->
+    <div class="w-full max-w-xl">
       <div class="bg-white/90 rounded-3xl shadow-xl p-6">
         <div class="flex items-center justify-between mb-4">
           <h1 class="text-2xl font-extrabold">Result</h1>
@@ -28,32 +27,6 @@
         </button>
 
         <p v-if="errorMsg" class="mt-3 text-sm text-red-600 text-center">{{ errorMsg }}</p>
-      </div>
-
-      <!-- Right: Debug/info -->
-      <div class="bg-white/90 rounded-3xl shadow-xl p-6">
-        <h2 class="text-lg font-bold mb-3">Captured shots</h2>
-        <div class="grid grid-cols-4 gap-3">
-          <div
-            v-for="(s, idx) in shots"
-            :key="idx"
-            class="aspect-[3/4] rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
-          >
-            <img :src="s" class="w-full h-full object-cover" />
-          </div>
-        </div>
-
-        <div class="mt-6 border border-slate-200 rounded-2xl p-4 text-sm text-slate-700">
-          <div class="font-bold mb-2">Applied settings</div>
-          <div><b>Filter:</b> {{ settings.filter }}</div>
-          <div><b>Timer:</b> {{ settings.timerSeconds }}s</div>
-          <div class="break-all"><b>Frame:</b> {{ settings.frameUrl || "(none)" }}</div>
-          <div><b>Date:</b> {{ dateStr }}</div>
-        </div>
-
-        <div class="mt-6 text-xs text-slate-500">
-          Note: if your frame image is hosted on CloudFront/S3, it must allow CORS (so canvas can draw it).
-        </div>
       </div>
     </div>
   </div>
@@ -117,7 +90,7 @@ function canvasFilterString(mode: FilterMode) {
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = "anonymous"; // IMPORTANT for CloudFront/S3 canvas
+    img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
     img.src = src;
@@ -164,7 +137,6 @@ async function compose() {
     return;
   }
 
-  // Final output size: IG Story friendly
   const W = 1080;
   const H = 1920;
 
@@ -177,28 +149,26 @@ async function compose() {
     return;
   }
 
-  // 1) Draw background frame (recommended: PNG without black rectangles)
+  // background
   if (settings.frameUrl) {
     const frameImg = await loadImage(settings.frameUrl);
     ctx.drawImage(frameImg, 0, 0, W, H);
   } else {
-    // fallback background
     ctx.fillStyle = "#FFFFFF";
     ctx.fillRect(0, 0, W, H);
   }
 
-  // 2) Slots (2x2, 3:4)
-const slots = compute4GridSlots(W, H, {
-  outerPad: 44,   // smaller outer padding = bigger photos
-  gap: 26,        // smaller gap = closer together
-  ratioW: 3,
-  ratioH: 4,
-  headerH: 140,   // reserve less at top
-  footerH: 220,   // reserve less at bottom
-});
+  // slots (must match booth)
+  const slots = compute4GridSlots(W, H, {
+    outerPad: 44,
+    gap: 26,
+    ratioW: 3,
+    ratioH: 4,
+    headerH: 140,
+    footerH: 220,
+  });
 
-
-  // 3) Draw shots into slots
+  // draw shots (sharp rectangles)
   for (let i = 0; i < 4; i++) {
     const shotSrc = shots.value[i];
     const slot = slots[i];
@@ -215,20 +185,18 @@ const slots = compute4GridSlots(W, H, {
     ctx.restore();
   }
 
-  // 4) Footer text (SelfSnap! + date)
-ctx.save();
-ctx.fillStyle = "#111827";
-ctx.textAlign = "center";
+  // footer text (higher)
+  ctx.save();
+  ctx.fillStyle = "#111827";
+  ctx.textAlign = "center";
 
-ctx.font = "bold 96px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-ctx.fillText("SelfSnap!", W / 2, H - 220);
+  ctx.font = "bold 96px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.fillText("SelfSnap!", W / 2, H - 220);
 
-ctx.font = "600 54px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-ctx.fillText(dateStr.value, W / 2, H - 150);
-ctx.restore();
+  ctx.font = "600 54px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.fillText(dateStr.value, W / 2, H - 150);
+  ctx.restore();
 
-
-  // 5) Export composed
   composedUrl.value = canvas.toDataURL("image/png");
 }
 
@@ -241,7 +209,6 @@ function download() {
 }
 
 function tryAgain() {
-  // Clear shots
   sessionStorage.removeItem("selfsnap.shots");
   router.push("/");
 }

@@ -1,12 +1,11 @@
 <template>
   <div class="min-h-screen bg-sky-200 flex items-center justify-center p-4">
-    <div class="w-full max-w-5xl grid gap-6 lg:grid-cols-2">
-      <!-- Left: Camera -->
+    <div class="w-full max-w-xl">
       <div class="bg-white/90 rounded-3xl shadow-xl p-6">
         <div class="flex items-center justify-between mb-4">
           <h1 class="text-2xl font-extrabold">Booth</h1>
           <button
-            class="px-4 py-2 rounded-full bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+            class="px-4 py-2 rounded-full bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
             @click="goBack"
             :disabled="isRunning"
           >
@@ -15,37 +14,81 @@
         </div>
 
         <p class="text-slate-600 mb-4">
-          This preview box is the <b>exact</b> crop that will be saved (3:4). You’ll take <b>4 shots</b>.
+          Camera shows only inside the <b>active box</b>.
         </p>
 
         <div class="relative w-full max-w-sm mx-auto">
-          <!-- EXACT CROP WINDOW (3:4) -->
-          <div class="relative w-full aspect-[3/4] overflow-hidden rounded-3xl bg-black shadow-lg">
+          <div class="relative w-full aspect-[9/16] overflow-hidden rounded-3xl bg-slate-100 shadow-lg">
+            <!-- Background frame (pure UI) -->
+            <img
+              v-if="settings.frameUrl"
+              :src="settings.frameUrl"
+              class="absolute inset-0 w-full h-full object-cover"
+              alt="Frame background"
+            />
+
+            <!-- Live camera (FULL), but clipped to active slot -->
             <video
               ref="videoEl"
               autoplay
               playsinline
               muted
               class="absolute inset-0 w-full h-full object-cover"
-              :style="{ filter: previewCssFilter }"
+              :style="{
+                filter: previewCssFilter,
+                clipPath: activeClipPath,
+                WebkitClipPath: activeClipPath,
+              }"
             />
 
-            <!-- framing outline -->
-            <div class="absolute inset-0 ring-4 ring-white/60 rounded-3xl pointer-events-none"></div>
+            <!-- SLOT CONTENT (captured shots live here) + guides -->
+            <div class="absolute inset-0 pointer-events-none">
+              <div v-for="(st, idx) in slotStyles" :key="idx" class="absolute" :style="st">
+                <!-- Captured shot stays in its slot -->
+                <img
+                  v-if="shots[idx]"
+                  :src="shots[idx]"
+                  class="absolute inset-0 w-full h-full object-cover"
+                  alt="Captured"
+                />
 
-            <!-- countdown overlay -->
+                <!-- If empty slot, show faint placeholder (so frame doesn’t look “holey”) -->
+                <div v-else class="absolute inset-0 bg-white/35"></div>
+
+                <!-- Border guides -->
+                <div
+                  class="absolute inset-0"
+                  :class="idx === activeSlotIndex ? 'ring-4 ring-emerald-400' : 'ring-2 ring-black/10'"
+                ></div>
+
+                <!-- Slot number -->
+                <div
+                  class="absolute -top-3 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                  :class="idx === activeSlotIndex ? 'bg-emerald-400 text-black' : 'bg-white/90 text-slate-900'"
+                >
+                  {{ idx + 1 }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Countdown -->
             <div
               v-if="countdown > 0"
-              class="absolute inset-0 flex items-center justify-center bg-black/40"
+              class="absolute inset-0 flex items-center justify-center bg-black/35"
             >
               <div class="w-20 h-20 rounded-full bg-white/90 flex items-center justify-center text-4xl font-black">
                 {{ countdown }}
               </div>
             </div>
 
-            <!-- shot progress -->
-            <div class="absolute top-3 left-3 text-xs px-3 py-1 rounded-full bg-white/80">
-              Shot {{ currentShotIndex + (isRunning ? 1 : 0) }} / 4
+            <!-- Progress -->
+            <div class="absolute top-3 left-3 text-xs px-3 py-1 rounded-full bg-white/85">
+              Shot {{ Math.min(shots.length + 1, 4) }} / 4
+            </div>
+
+            <!-- Logo badge (UI only) -->
+            <div class="absolute top-3 right-3 text-xs px-3 py-1 rounded-full bg-white/85">
+              d!
             </div>
           </div>
 
@@ -71,39 +114,6 @@
           <p v-if="errorMsg" class="mt-3 text-sm text-red-600 text-center">{{ errorMsg }}</p>
         </div>
       </div>
-
-      <!-- Right: Info + thumbnails -->
-      <div class="bg-white/90 rounded-3xl shadow-xl p-6">
-        <h2 class="text-lg font-bold mb-3">Settings in use</h2>
-        <div class="text-sm text-slate-700 space-y-1 mb-6">
-          <div><b>Timer:</b> {{ settings.timerSeconds }}s</div>
-          <div><b>Filter:</b> {{ settings.filter }}</div>
-          <div class="break-all"><b>Frame:</b> {{ settings.frameUrl || "(none)" }}</div>
-        </div>
-
-        <h2 class="text-lg font-bold mb-3">Captured so far</h2>
-        <div class="grid grid-cols-4 gap-3">
-          <div
-            v-for="(s, idx) in shots"
-            :key="idx"
-            class="aspect-[3/4] rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
-          >
-            <img :src="s" class="w-full h-full object-cover" />
-          </div>
-
-          <div
-            v-for="k in Math.max(0, 4 - shots.length)"
-            :key="'ph-' + k"
-            class="aspect-[3/4] rounded-2xl bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-400 text-xs"
-          >
-            waiting
-          </div>
-        </div>
-
-        <div class="mt-6 text-xs text-slate-500">
-          We don’t store anything on the server. Your images exist only in your browser session.
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -111,13 +121,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
+import { compute4GridSlots } from "@/lib/layout";
 
 type FilterMode = "none" | "bw" | "sepia";
-type Settings = {
-  frameUrl: string;
-  filter: FilterMode;
-  timerSeconds: number; // 3, 5, 10
-};
+type Settings = { frameUrl: string; filter: FilterMode; timerSeconds: number };
 
 const router = useRouter();
 
@@ -132,8 +139,64 @@ const shots = ref<string[]>([]);
 const errorMsg = ref<string>("");
 
 const facingMode = ref<"user" | "environment">("user");
-
 const settings = reactive<Settings>(loadSettings());
+
+const FRAME_W = 1080;
+const FRAME_H = 1920;
+
+/** MUST match ResultView + layout.ts */
+const LAYOUT = {
+  outerPad: 44,
+  gap: 26,
+  headerH: 140,
+  footerH: 220,
+  ratioW: 3,
+  ratioH: 4,
+};
+
+const slotsPx = computed(() =>
+  compute4GridSlots(FRAME_W, FRAME_H, {
+    outerPad: LAYOUT.outerPad,
+    gap: LAYOUT.gap,
+    ratioW: LAYOUT.ratioW,
+    ratioH: LAYOUT.ratioH,
+    headerH: LAYOUT.headerH,
+    footerH: LAYOUT.footerH,
+  })
+);
+
+const slotStyles = computed(() =>
+  slotsPx.value.map((s) => ({
+    left: `${(s.x / FRAME_W) * 100}%`,
+    top: `${(s.y / FRAME_H) * 100}%`,
+    width: `${(s.w / FRAME_W) * 100}%`,
+    height: `${(s.h / FRAME_H) * 100}%`,
+  }))
+);
+
+/**
+ * Active slot for preview:
+ * - if running: currentShotIndex
+ * - if not running: show slot 0 (so user sees where they’ll be framed)
+ */
+const activeSlotIndex = computed(() => (isRunning.value ? currentShotIndex.value : 0));
+
+/**
+ * Clip-path that reveals the FULL-SIZE video only inside the active slot.
+ * This is the key fix for the “preview is wrong again” problem.
+ */
+const activeClipPath = computed(() => {
+  const s = slotsPx.value[activeSlotIndex.value];
+  if (!s) return "inset(0 0 0 0)";
+
+  const top = (s.y / FRAME_H) * 100;
+  const left = (s.x / FRAME_W) * 100;
+  const bottom = 100 - ((s.y + s.h) / FRAME_H) * 100;
+  const right = 100 - ((s.x + s.w) / FRAME_W) * 100;
+
+  // sharp corners (no "round")
+  return `inset(${top}% ${right}% ${bottom}% ${left}%)`;
+});
 
 const previewCssFilter = computed(() => {
   if (settings.filter === "bw") return "grayscale(1)";
@@ -142,9 +205,6 @@ const previewCssFilter = computed(() => {
 });
 
 function loadSettings(): Settings {
-  // Priority 1: query params (optional)
-  // Priority 2: sessionStorage ("selfsnap.settings")
-  // Fallback defaults
   try {
     const raw = sessionStorage.getItem("selfsnap.settings");
     if (raw) return { frameUrl: "", filter: "none", timerSeconds: 3, ...JSON.parse(raw) };
@@ -160,7 +220,6 @@ async function startCamera() {
   errorMsg.value = "";
   cameraReady.value = false;
 
-  // Stop old stream
   if (streamRef.value) {
     streamRef.value.getTracks().forEach((t) => t.stop());
     streamRef.value = null;
@@ -177,7 +236,6 @@ async function startCamera() {
     });
 
     streamRef.value = stream;
-
     if (!videoEl.value) throw new Error("Video element missing");
     videoEl.value.srcObject = stream;
 
@@ -241,24 +299,35 @@ function drawVideoCoverToCanvas(
   ctx.restore();
 }
 
-async function captureOneShot(): Promise<string> {
+async function captureOneShot(shotIndex: number): Promise<string> {
   const v = videoEl.value;
   if (!v) throw new Error("Video not ready");
 
-  // 3:4 output per shot
+  const frameCanvas = document.createElement("canvas");
+  frameCanvas.width = FRAME_W;
+  frameCanvas.height = FRAME_H;
+
+  const fctx = frameCanvas.getContext("2d");
+  if (!fctx) throw new Error("Frame canvas context missing");
+
+  // Full-frame render (this matches the <video> sizing)
+  drawVideoCoverToCanvas(fctx, v, FRAME_W, FRAME_H, settings.filter);
+
+  const s = slotsPx.value[shotIndex];
+  if (!s) throw new Error("Missing slot for shot");
+
   const outW = 1080;
   const outH = 1440;
 
-  const canvas = document.createElement("canvas");
-  canvas.width = outW;
-  canvas.height = outH;
+  const shotCanvas = document.createElement("canvas");
+  shotCanvas.width = outW;
+  shotCanvas.height = outH;
 
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas context missing");
+  const sctx = shotCanvas.getContext("2d");
+  if (!sctx) throw new Error("Shot canvas context missing");
 
-  drawVideoCoverToCanvas(ctx, v, outW, outH, settings.filter);
-
-  return canvas.toDataURL("image/jpeg", 0.92);
+  sctx.drawImage(frameCanvas, s.x, s.y, s.w, s.h, 0, 0, outW, outH);
+  return shotCanvas.toDataURL("image/jpeg", 0.92);
 }
 
 async function runCountdown(seconds: number) {
@@ -282,10 +351,11 @@ async function startSequence() {
       currentShotIndex.value = i;
 
       await runCountdown(settings.timerSeconds);
-      const shot = await captureOneShot();
-      shots.value.push(shot);
+      const shot = await captureOneShot(i);
 
-      // quick breathing room between shots
+      // store immediately so it appears in the slot BEFORE moving on
+      shots.value = [...shots.value, shot];
+
       await sleep(250);
     }
 
@@ -300,7 +370,6 @@ async function startSequence() {
 }
 
 onMounted(async () => {
-  // Load settings fresh (in case Settings page updated it)
   Object.assign(settings, loadSettings());
   await startCamera();
 });
