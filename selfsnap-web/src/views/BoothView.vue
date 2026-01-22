@@ -29,17 +29,21 @@
 
             <!-- Live camera (FULL), but clipped to active slot -->
             <video
-              ref="videoEl"
-              autoplay
-              playsinline
-              muted
-              class="absolute bg-black object-cover"
-              :style="{
+            ref="videoEl"
+            autoplay
+            playsinline
+            muted
+            class="absolute bg-black object-cover"
+            :style="{
                 ...activeSlotStyle,
                 filter: previewCssFilter,
-                transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
-              }"
+                WebkitFilter: previewCssFilter,
+                transform:
+                (facingMode === 'user' ? 'scaleX(-1) ' : '') + 'translateZ(0)',
+                willChange: 'transform, filter',
+            }"
             />
+
 
             <!-- SLOT CONTENT (captured shots live here) + guides -->
             <div class="absolute inset-0 pointer-events-none">
@@ -83,11 +87,6 @@
               <div class="w-20 h-20 rounded-full bg-white/90 flex items-center justify-center text-4xl font-black">
                 {{ countdown }}
               </div>
-            </div>
-
-            <!-- Progress -->
-            <div class="absolute top-3 left-3 text-xs px-3 py-1 rounded-full bg-white/85">
-              Shot {{ Math.min(shots.length + 1, 4) }} / 4
             </div>
           </div>
 
@@ -351,8 +350,11 @@ async function captureOneShot(_: number): Promise<string> {
   const ctx = shotCanvas.getContext("2d");
   if (!ctx) throw new Error("Shot canvas context missing");
 
-  // Draw video "cover" into 3:4 directly (matches preview)
+  // draw (mirrored if user cam) — keep your existing drawVideoCoverToCanvas
   drawVideoCoverToCanvas(ctx, v, outW, outH, settings.filter);
+
+  // ✅ mobile-safe filter fallback (works even if ctx.filter didn’t apply)
+  applyPixelFilter(ctx, settings.filter, outW, outH);
 
   return shotCanvas.toDataURL("image/jpeg", 0.92);
 }
@@ -405,4 +407,38 @@ onBeforeUnmount(() => {
     streamRef.value = null;
   }
 });
+
+function applyPixelFilter(ctx: CanvasRenderingContext2D, mode: FilterMode, w: number, h: number) {
+  if (mode === "none") return;
+
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data; // Uint8ClampedArray
+
+  if (mode === "bw") {
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i] ?? 0;
+      const g = d[i + 1] ?? 0;
+      const b = d[i + 2] ?? 0;
+
+      const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+      d[i] = y;
+      d[i + 1] = y;
+      d[i + 2] = y;
+      // alpha stays as-is
+    }
+  } else if (mode === "sepia") {
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i] ?? 0;
+      const g = d[i + 1] ?? 0;
+      const b = d[i + 2] ?? 0;
+
+      d[i]     = Math.min(255, 0.393 * r + 0.769 * g + 0.189 * b);
+      d[i + 1] = Math.min(255, 0.349 * r + 0.686 * g + 0.168 * b);
+      d[i + 2] = Math.min(255, 0.272 * r + 0.534 * g + 0.131 * b);
+    }
+  }
+
+  ctx.putImageData(img, 0, 0);
+}
 </script>
