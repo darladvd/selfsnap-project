@@ -18,13 +18,27 @@
           </div>
         </div>
 
+        <div class="mt-6 flex flex-col gap-3">
+        <!-- Share (shows if supported) -->
         <button
-          class="mt-6 w-full py-3 rounded-full bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50"
-          :disabled="!composedUrl"
-          @click="download"
+            v-if="canShare"
+            class="w-full py-3 rounded-full bg-emerald-600 text-white font-bold hover:bg-emerald-700 disabled:opacity-50"
+            :disabled="!composedUrl || isSharing"
+            @click="share"
         >
-          Download
+            {{ isSharing ? "Sharing..." : "Share" }}
         </button>
+
+        <!-- Download (always available fallback) -->
+        <button
+            class="w-full py-3 rounded-full bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50"
+            :disabled="!composedUrl"
+            @click="download"
+        >
+            Download
+        </button>
+        </div>
+
 
         <p v-if="errorMsg" class="mt-3 text-sm text-red-600 text-center">{{ errorMsg }}</p>
       </div>
@@ -54,6 +68,8 @@ const shots = ref<string[]>(loadShots());
 const settings = reactive<Settings>(loadSettings());
 
 const dateStr = computed(() => formatMMDDYYYY(new Date()));
+
+const isSharing = ref(false);
 
 function loadSettings(): Settings {
   try {
@@ -214,6 +230,53 @@ async function download() {
     a.click();
     URL.revokeObjectURL(url);
   }, "image/png");
+}
+
+const canShare = computed(() => {
+  const nav: any = navigator;
+  return typeof nav !== "undefined" && typeof nav.share === "function";
+});
+
+async function share() {
+  const canvas = canvasEl.value;
+  if (!canvas) return;
+
+  try {
+    isSharing.value = true;
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error("Failed to create image blob"))),
+        "image/png"
+      );
+    });
+
+    const fileName = `selfsnap-${dateStr.value}.png`;
+    const file = new File([blob], fileName, { type: "image/png" });
+
+    const nav: any = navigator;
+
+    // If Safari supports sharing files, do it and STOP.
+    if (typeof nav.canShare === "function" && nav.canShare({ files: [file] })) {
+      await nav.share({
+        files: [file],
+        title: "SelfSnap!",
+        text: `SelfSnap ${dateStr.value}`,
+      });
+      return; // ✅ prevents download after a successful share
+    }
+
+    // If file sharing isn't supported, fallback to download
+    await download();
+  } catch (err: any) {
+    // User pressed "Cancel" → do nothing (no download)
+    if (err?.name === "AbortError") return;
+
+    // Real error → fallback to download
+    await download();
+  } finally {
+    isSharing.value = false;
+  }
 }
 
 function tryAgain() {
