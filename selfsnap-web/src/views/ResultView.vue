@@ -149,24 +149,6 @@ function drawCover(
   ctx.restore();
 }
 
-function roundedRectClip(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
-) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-  ctx.clip();
-}
-
 async function compose() {
   errorMsg.value = "";
   composedUrl.value = "";
@@ -206,17 +188,15 @@ async function compose() {
   }
 
   // 2) Slots (2x2, 3:4)
-  const slots = compute4GridSlots({
-    canvasW: W,
-    canvasH: H,
-    topMargin: 180,
-    bottomReserved: 260,
-    colGap: 70,
-    rowGap: 90,
-    sideMargin: 90,
-    aspectW: 3,
-    aspectH: 4,
-  });
+const slots = compute4GridSlots(W, H, {
+  outerPad: 44,   // smaller outer padding = bigger photos
+  gap: 26,        // smaller gap = closer together
+  ratioW: 3,
+  ratioH: 4,
+  headerH: 140,   // reserve less at top
+  footerH: 220,   // reserve less at bottom
+});
+
 
   // 3) Draw shots into slots
   for (let i = 0; i < 4; i++) {
@@ -227,31 +207,26 @@ async function compose() {
     const shotImg = await loadImage(shotSrc);
 
     ctx.save();
-    roundedRectClip(ctx, slot.x, slot.y, slot.w, slot.h, 28);
-    drawCover(ctx, shotImg, slot.x, slot.y, slot.w, slot.h, settings.filter);
-    ctx.restore();
-
-    // Optional border
-    ctx.save();
-    ctx.strokeStyle = "rgba(0,0,0,0.08)";
-    ctx.lineWidth = 6;
     ctx.beginPath();
-    // fake rounded stroke by clipping first then stroking rect
-    roundedRectClip(ctx, slot.x, slot.y, slot.w, slot.h, 28);
+    ctx.rect(slot.x, slot.y, slot.w, slot.h);
+    ctx.clip();
+
+    drawCover(ctx, shotImg, slot.x, slot.y, slot.w, slot.h, settings.filter);
     ctx.restore();
   }
 
   // 4) Footer text (SelfSnap! + date)
-  ctx.save();
-  ctx.fillStyle = "#111827";
-  ctx.textAlign = "center";
+ctx.save();
+ctx.fillStyle = "#111827";
+ctx.textAlign = "center";
 
-  ctx.font = "bold 96px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-  ctx.fillText("SelfSnap!", W / 2, H - 140);
+ctx.font = "bold 96px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+ctx.fillText("SelfSnap!", W / 2, H - 220);
 
-  ctx.font = "600 54px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-  ctx.fillText(dateStr.value, W / 2, H - 70);
-  ctx.restore();
+ctx.font = "600 54px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+ctx.fillText(dateStr.value, W / 2, H - 150);
+ctx.restore();
+
 
   // 5) Export composed
   composedUrl.value = canvas.toDataURL("image/png");

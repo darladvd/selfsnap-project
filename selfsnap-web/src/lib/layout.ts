@@ -1,74 +1,54 @@
 // src/lib/layout.ts
 export type Rect = { x: number; y: number; w: number; h: number };
 
-export type GridLayoutOptions = {
-  canvasW: number;          // required
-  canvasH: number;          // required
-  sideMargin?: number;      // left/right padding
-  topMargin?: number;       // reserved header space
-  bottomReserved?: number;  // reserved footer space
-  colGap?: number;          // gap between columns
-  rowGap?: number;          // gap between rows
-  aspectW?: number;         // default 3
-  aspectH?: number;         // default 4
-};
+export function compute4GridSlots(
+  canvasW: number,
+  canvasH: number,
+  opts?: {
+    outerPad?: number; // padding from edges
+    gap?: number; // gap between slots
+    ratioW?: number; // default 3
+    ratioH?: number; // default 4
+    headerH?: number; // reserved top area (logo space)
+    footerH?: number; // reserved bottom area (text space)
+  }
+): Rect[] {
+  // ✅ Tighter margins + tighter gaps = bigger slots
+  const outerPad = opts?.outerPad ?? Math.round(canvasW * 0.04); // was 0.06
+  const gap = opts?.gap ?? Math.round(canvasW * 0.025); // was 0.04
+  const ratioW = opts?.ratioW ?? 3;
+  const ratioH = opts?.ratioH ?? 4;
 
-/**
- * Computes a 2x2 grid of 4 slots inside a canvas.
- * Each slot is aspectW:aspectH (default 3:4), centered with even gaps.
- */
-export function compute4GridSlots(opts: GridLayoutOptions): Rect[] {
-  const canvasW = opts.canvasW;
-  const canvasH = opts.canvasH;
+  // ✅ Give the grid more room (so slots can grow)
+  const headerH = opts?.headerH ?? Math.round(canvasH * 0.06); // was 0.08
+  const footerH = opts?.footerH ?? Math.round(canvasH * 0.07); // was 0.10
 
-  const sideMargin = opts.sideMargin ?? Math.round(canvasW * 0.06);
-  const topMargin = opts.topMargin ?? Math.round(canvasH * 0.08);
-  const bottomReserved = opts.bottomReserved ?? Math.round(canvasH * 0.10);
+  const usableW = canvasW - outerPad * 2;
+  const usableH = canvasH - outerPad * 2 - headerH - footerH;
 
-  const colGap = opts.colGap ?? Math.round(canvasW * 0.04);
-  const rowGap = opts.rowGap ?? Math.round(canvasH * 0.04);
+  const cellW = (usableW - gap) / 2;
+  const cellH = (usableH - gap) / 2;
 
-  const aspectW = opts.aspectW ?? 3;
-  const aspectH = opts.aspectH ?? 4;
-
-  // Usable area for the 2x2 grid
-  const usableW = canvasW - sideMargin * 2;
-  const usableH = canvasH - topMargin - bottomReserved;
-
-  // Each cell size (2 cols, 2 rows)
-  const cellW = (usableW - colGap) / 2;
-  const cellH = (usableH - rowGap) / 2;
-
-  // Fit target aspect into each cell
-  const targetRatio = aspectW / aspectH;
+  // Fit a 3:4 rect inside each cell
   const cellRatio = cellW / cellH;
+  const targetRatio = ratioW / ratioH;
 
   let shotW: number, shotH: number;
   if (cellRatio > targetRatio) {
-    // cell wider -> limit by height
     shotH = cellH;
     shotW = shotH * targetRatio;
   } else {
-    // cell taller -> limit by width
     shotW = cellW;
     shotH = shotW / targetRatio;
   }
 
-  // Center the grid horizontally inside usableW
-  const totalGridW = shotW * 2 + colGap;
-  const startX = sideMargin + (usableW - totalGridW) / 2;
-
-  // Start Y at topMargin (already reserved)
-  const y1 = topMargin;
-  const y2 = y1 + shotH + rowGap;
-
-  const x1 = startX;
-  const x2 = x1 + shotW + colGap;
+  const gridLeft = outerPad + (usableW - (shotW * 2 + gap)) / 2;
+const gridTop = outerPad + headerH + Math.round(canvasH * 0.006);
 
   return [
-    { x: x1, y: y1, w: shotW, h: shotH }, // top-left
-    { x: x2, y: y1, w: shotW, h: shotH }, // top-right
-    { x: x1, y: y2, w: shotW, h: shotH }, // bottom-left
-    { x: x2, y: y2, w: shotW, h: shotH }, // bottom-right
+    { x: gridLeft, y: gridTop, w: shotW, h: shotH },
+    { x: gridLeft + shotW + gap, y: gridTop, w: shotW, h: shotH },
+    { x: gridLeft, y: gridTop + shotH + gap, w: shotW, h: shotH },
+    { x: gridLeft + shotW + gap, y: gridTop + shotH + gap, w: shotW, h: shotH },
   ];
 }

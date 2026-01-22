@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "npm run build && aws s3 sync dist s3://selfsnap-site-dd --delete --region ap-southeast-1 && aws cloudfront create-invalidation --distribution-id E3CCG4YNL3GPZ2 --paths '/*'"
   },
   "dependencies": {
     "vue": "^3.5.24",
