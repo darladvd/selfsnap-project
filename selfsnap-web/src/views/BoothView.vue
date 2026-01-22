@@ -29,15 +29,15 @@
 
             <!-- Live camera (FULL), but clipped to active slot -->
             <video
-            ref="videoEl"
-            autoplay
-            playsinline
-            muted
-            class="absolute object-cover"
-            :style="{
+              ref="videoEl"
+              autoplay
+              playsinline
+              muted
+              class="absolute bg-black object-cover"
+              :style="{
                 ...activeSlotStyle,
                 filter: previewCssFilter,
-            }"
+              }"
             />
 
             <!-- SLOT CONTENT (captured shots live here) + guides -->
@@ -51,13 +51,12 @@
                   alt="Captured"
                 />
 
-                <!-- If empty slot, show faint placeholder (so frame doesn’t look “holey”) -->
+                <!-- If empty slot, show faint placeholder (so frame doesn't look "holey") -->
                 <!-- If empty slot and NOT active -> show faint placeholder -->
                 <div
-                v-else-if="idx !== activeSlotIndex"
-                class="absolute inset-0 bg-white/35"
+                  v-else-if="idx !== activeSlotIndex"
+                  class="absolute inset-0 bg-white/35"
                 ></div>
-
 
                 <!-- Border guides -->
                 <div
@@ -174,20 +173,21 @@ const slotStyles = computed(() =>
 );
 
 const activeSlotStyle = computed(() => {
-  const st = slotStyles.value[activeSlotIndex.value];
-  if (!st) return {};
+  const s = slotsPx.value[activeSlotIndex.value];
+  if (!s) return { inset: "0" };
+
   return {
-    left: st.left,
-    top: st.top,
-    width: st.width,
-    height: st.height,
-  };
+    left: `${(s.x / FRAME_W) * 100}%`,
+    top: `${(s.y / FRAME_H) * 100}%`,
+    width: `${(s.w / FRAME_W) * 100}%`,
+    height: `${(s.h / FRAME_H) * 100}%`,
+  } as Record<string, string>;
 });
 
 /**
  * Active slot for preview:
  * - if running: currentShotIndex
- * - if not running: show slot 0 (so user sees where they’ll be framed)
+ * - if not running: show slot 0 (so user sees where they'll be framed)
  */
 const activeSlotIndex = computed(() => (isRunning.value ? currentShotIndex.value : 0));
 
@@ -219,35 +219,71 @@ async function startCamera() {
   }
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
+    // Use more flexible constraints for mobile
+    const constraints: MediaStreamConstraints = {
       video: {
         facingMode: facingMode.value,
-        width: { ideal: 720 },
-        height: { ideal: 1280 },
-        aspectRatio: { ideal: 9 / 16 },
+        // Remove width/height constraints and use aspectRatio only
+        aspectRatio: { ideal: 3 / 4 },
+        // Allow browser to choose optimal resolution
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
       },
       audio: false,
-    });
+    };
+
+    // Try with constraints, if fails try with minimal constraints
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err) {
+      console.warn("First attempt failed, trying minimal constraints:", err);
+      // Fallback to minimal constraints
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facingMode.value },
+        audio: false,
+      });
+    }
 
     streamRef.value = stream;
     if (!videoEl.value) throw new Error("Video element missing");
     videoEl.value.srcObject = stream;
 
-    await new Promise<void>((resolve) => {
+    // Wait for video to be ready
+    await new Promise<void>((resolve, reject) => {
       const v = videoEl.value!;
       const onReady = () => {
         v.removeEventListener("loadedmetadata", onReady);
         resolve();
       };
+      const onError = () => {
+        v.removeEventListener("error", onError);
+        reject(new Error("Video failed to load"));
+      };
       v.addEventListener("loadedmetadata", onReady);
+      v.addEventListener("error", onError);
+      
+      // Safety timeout
+      setTimeout(() => {
+        if (v.readyState >= 1) resolve();
+      }, 3000);
     });
 
     cameraReady.value = true;
+    
+    // Log video dimensions for debugging
+    console.log("Video dimensions:", {
+      width: videoEl.value.videoWidth,
+      height: videoEl.value.videoHeight,
+      aspectRatio: videoEl.value.videoWidth / videoEl.value.videoHeight
+    });
+
   } catch (err: any) {
     errorMsg.value =
       err?.name === "NotAllowedError"
         ? "Camera permission denied. Please allow camera access."
         : `Failed to start camera: ${err?.message ?? String(err)}`;
+    console.error("Camera error:", err);
   }
 }
 
@@ -280,16 +316,18 @@ function drawVideoCoverToCanvas(
   const vw = video.videoWidth;
   const vh = video.videoHeight;
 
+  // Calculate scale to cover the output area (not contain)
   const scale = Math.max(outW / vw, outH / vh);
-  const sw = outW / scale;
-  const sh = outH / scale;
+  const sw = vw * scale;
+  const sh = vh * scale;
 
-  const sx = (vw - sw) / 2;
-  const sy = (vh - sh) / 2;
+  // Center the scaled video
+  const dx = (outW - sw) / 2;
+  const dy = (outH - sh) / 2;
 
   ctx.save();
   ctx.filter = canvasFilterString(filterMode);
-  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, outW, outH);
+  ctx.drawImage(video, dx, dy, sw, sh);
   ctx.restore();
 }
 
@@ -334,8 +372,8 @@ async function startSequence() {
       currentShotIndex.value = i;
 
       await runCountdown(settings.timerSeconds);
-        const shot = await captureOneShot(i);
-        shots.value = [...shots.value, shot];
+      const shot = await captureOneShot(i);
+      shots.value = [...shots.value, shot];
 
       await sleep(250);
     }
