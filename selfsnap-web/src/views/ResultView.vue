@@ -67,6 +67,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { compute4GridSlots } from "@/lib/layout";
+import { pickTextColorFromRegion } from "@/lib/canvasColor";
 
 type FilterMode = "none" | "bw" | "sepia";
 type Settings = {
@@ -218,16 +219,30 @@ async function compose() {
     drawCover(ctx, shotImg, slot.x, slot.y, slot.w, slot.h, settings.filter);
     ctx.restore();
   }
+  
+  const sampleX = Math.floor(W * 0.15);
+  const sampleW = Math.floor(W * 0.70);
+  const sampleY = H - 320;
+  const sampleH = 240;
+
+  const footerTextColor = pickTextColorFromRegion(ctx, sampleX, sampleY, sampleW, sampleH);
 
   ctx.save();
-  ctx.fillStyle = "#111827";
   ctx.textAlign = "center";
+  ctx.fillStyle = footerTextColor;
+
+  // optional: add a subtle outline for extra safety on “busy” frames
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = footerTextColor === "#FFFFFF" ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.35)";
 
   ctx.font = "bold 96px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.strokeText("SelfSnap!", W / 2, H - 220);
   ctx.fillText("SelfSnap!", W / 2, H - 220);
 
   ctx.font = "500 54px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.strokeText(dateStr.value, W / 2, H - 150);
   ctx.fillText(dateStr.value, W / 2, H - 150);
+
   ctx.restore();
 
   composedUrl.value = canvas.toDataURL("image/png");
@@ -272,7 +287,6 @@ async function share() {
 
     const nav: any = navigator;
 
-    // If Safari supports sharing files, do it and STOP.
     if (typeof nav.canShare === "function" && nav.canShare({ files: [file] })) {
       await nav.share({
         files: [file],
