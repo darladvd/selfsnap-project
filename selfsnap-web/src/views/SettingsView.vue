@@ -28,6 +28,7 @@
           <div>
             <label class="text-sm font-semibold">Timer</label>
             <select v-model.number="timerSeconds" class="mt-1 w-full rounded-xl border p-3">
+              <option :value="1">1 second</option>
               <option :value="3">3 seconds</option>
               <option :value="5">5 seconds</option>
               <option :value="10">10 seconds</option>

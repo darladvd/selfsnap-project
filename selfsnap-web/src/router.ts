@@ -13,13 +13,3 @@ export const router = createRouter({
     { path: "/result", name: "result", component: ResultView },
   ],
 });
-
-router.beforeEach((to, from, next) => {
-  const isRefresh = !from.name;
-
-  if (isRefresh && to.name !== "home") {
-    next({ name: "home" });
-  } else {
-    next();
-  }
-});
