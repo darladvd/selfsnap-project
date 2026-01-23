@@ -3,7 +3,7 @@
 version = 0.1
 
 [default.global.parameters]
-stack_name = "selfsnap"
+stack_name = "selfsnap-backend"
 region = "ap-southeast-1"
 
 [default.build.parameters]

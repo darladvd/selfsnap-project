@@ -1,13 +1,13 @@
 <template>
-  <div class="min-h-screen bg-sky-200 p-6">
+  <div class="min-h-screen p-6">
     <div class="mx-auto max-w-5xl grid gap-6 md:grid-cols-2">
       <!-- Settings -->
-      <div class="rounded-3xl bg-white p-6 shadow">
+      <div class="self-start rounded-3xl bg-white p-6 shadow">
         <h2 class="text-2xl font-bold flex items-center gap-2">⚙️ Settings</h2>
 
         <div class="mt-6 space-y-4">
           <div>
-            <label class="text-sm font-semibold">Background / Frame</label>
+            <label class="text-sm font-semibold">Frame</label>
             <select v-model="selectedFrameKey" class="mt-1 w-full rounded-xl border p-3">
               <option value="" disabled>Select a frame...</option>
               <option v-for="f in frames" :key="f.s3Key" :value="f.s3Key">
@@ -34,14 +34,13 @@
             </select>
           </div>
 
-          <div class="pt-2">
-            <label class="flex items-center gap-2 text-sm">
-              <input type="checkbox" v-model="understand" />
-              I understand.
-            </label>
+          <div>
+            <label class="text-sm font-semibold">How to Use</label>
             <p class="mt-2 text-sm text-gray-600">
               Wait for the timer, then smile! No retakes. Don’t forget to download your photo — we don’t store anything.
             </p>
+            <label class="mt-3 flex items-center gap-2 text-sm">
+              <input type="checkbox" v-model="understand" /> I understand. </label>
           </div>
 
           <button
@@ -150,13 +149,11 @@ function go() {
     timerSeconds: timerSeconds.value,
   };
 
-  // ✅ Use the same key Booth/Result expects
   sessionStorage.setItem("selfsnap.settings", JSON.stringify(payload));
   router.push("/booth");
 }
 
 onMounted(() => {
-  // Preload filter/timer from storage (frameKey restored after frames fetch)
   const stored = readStoredSettings();
   if (stored.filter) filter.value = stored.filter;
   if (stored.timerSeconds) timerSeconds.value = stored.timerSeconds;

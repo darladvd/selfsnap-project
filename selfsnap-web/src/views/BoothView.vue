@@ -1,21 +1,36 @@
 <template>
-  <div class="min-h-screen bg-sky-200 flex items-center justify-center p-4">
+  <div class="min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-xl">
       <div class="bg-white/90 rounded-3xl shadow-xl p-6">
+        <!-- Top header with icons -->
         <div class="flex items-center justify-between mb-4">
-          <h1 class="text-2xl font-extrabold">Booth</h1>
-          <button
-            class="px-4 py-2 rounded-full bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
-            @click="goBack"
-            :disabled="isRunning"
-          >
-            Back
-          </button>
+          <h2 class="text-2xl font-bold flex items-center gap-2">
+            📸 Booth
+          </h2>
+          
+          <!-- Icon buttons in top right -->
+          <div class="flex items-center gap-2">
+            <!-- Flip camera icon button -->
+            <button
+              class="p-3 rounded-full bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+              @click="flipCamera"
+              :disabled="isRunning"
+              title="Flip camera"
+            >
+              <i class="fas fa-camera-rotate text-slate-800"></i>
+            </button>
+            
+            <!-- Back icon button -->
+            <button
+              class="p-3 rounded-full bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+              @click="goBack"
+              :disabled="isRunning"
+              title="Go back"
+            >
+              <i class="fas fa-arrow-left text-slate-800"></i>
+            </button>
+          </div>
         </div>
-
-        <p class="text-slate-600 mb-4">
-          Camera shows only inside the <b>active box</b>.
-        </p>
 
         <div class="relative w-full max-w-sm mx-auto">
           <div class="relative w-full aspect-[9/16] overflow-hidden rounded-3xl bg-slate-100 shadow-lg">
@@ -90,23 +105,21 @@
             </div>
           </div>
 
-          <div class="mt-4 flex items-center justify-center gap-3">
+          <!-- Start button with camera icon -->
+          <div class="mt-4 flex items-center justify-center">
             <button
-              class="px-6 py-3 rounded-full bg-emerald-500 text-white font-bold hover:bg-emerald-600 disabled:opacity-50"
+              class="w-16 h-16 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 transition-all hover:scale-105 flex items-center justify-center"
               @click="startSequence"
               :disabled="!cameraReady || isRunning"
+              :title="isRunning ? 'Capturing...' : 'Start capture'"
             >
-              {{ isRunning ? "Capturing..." : "Start" }}
+              <i class="fas fa-camera text-2xl"></i>
             </button>
+          </div>
 
-            <button
-              class="px-6 py-3 rounded-full bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
-              @click="flipCamera"
-              :disabled="isRunning"
-              title="Try switching front/back camera"
-            >
-              Flip
-            </button>
+          <!-- Loading/capturing text -->
+          <div v-if="isRunning" class="mt-2 text-center text-sm text-slate-600">
+            <i class="fas fa-circle-notch fa-spin mr-1"></i> Capturing...
           </div>
 
           <p v-if="errorMsg" class="mt-3 text-sm text-red-600 text-center">{{ errorMsg }}</p>
@@ -288,7 +301,7 @@ async function startCamera() {
 }
 
 function goBack() {
-  router.push("/");
+  router.push("/settings");
 }
 
 async function flipCamera() {
@@ -350,10 +363,7 @@ async function captureOneShot(_: number): Promise<string> {
   const ctx = shotCanvas.getContext("2d");
   if (!ctx) throw new Error("Shot canvas context missing");
 
-  // draw (mirrored if user cam) — keep your existing drawVideoCoverToCanvas
   drawVideoCoverToCanvas(ctx, v, outW, outH, settings.filter);
-
-  // ✅ mobile-safe filter fallback (works even if ctx.filter didn’t apply)
   applyPixelFilter(ctx, settings.filter, outW, outH);
 
   return shotCanvas.toDataURL("image/jpeg", 0.92);
