@@ -1,25 +1,36 @@
 <template>
-  <div class="min-h-screen bg-sky-200 flex items-center justify-center p-4">
+  <div class="min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-xl">
       <div class="bg-white/90 rounded-3xl shadow-xl p-6">
         <div class="flex items-center justify-between mb-4">
-          <h1 class="text-2xl font-extrabold">Booth</h1>
-          <button
-            class="px-4 py-2 rounded-full bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
-            @click="goBack"
-            :disabled="isRunning"
-          >
-            Back
-          </button>
+          <h2 class="text-2xl font-bold flex items-center gap-2">
+            📸 Booth
+          </h2>
+          
+          <div class="flex items-center gap-2">
+            <button
+              class="p-3 rounded-full bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+              @click="flipCamera"
+              :disabled="isRunning"
+              title="Flip camera"
+            >
+              <i class="fas fa-camera-rotate text-slate-800"></i>
+            </button>
+            
+            <button
+              class="p-3 rounded-full bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+              @click="goBack"
+              :disabled="isRunning"
+              title="Go back"
+            >
+              <i class="fas fa-arrow-left text-slate-800"></i>
+            </button>
+          </div>
         </div>
-
-        <p class="text-slate-600 mb-4">
-          Camera shows only inside the <b>active box</b>.
-        </p>
 
         <div class="relative w-full max-w-sm mx-auto">
           <div class="relative w-full aspect-[9/16] overflow-hidden rounded-3xl bg-slate-100 shadow-lg">
-            <!-- Background frame (pure UI) -->
+            <!-- Background frame -->
             <img
               v-if="settings.frameUrl"
               :src="settings.frameUrl"
@@ -27,7 +38,7 @@
               alt="Frame background"
             />
 
-            <!-- Live camera (FULL), but clipped to active slot -->
+            <!-- Live camera -->
             <video
             ref="videoEl"
             autoplay
@@ -45,7 +56,7 @@
             />
 
 
-            <!-- SLOT CONTENT (captured shots live here) + guides -->
+            <!-- SLOT CONTENT -->
             <div class="absolute inset-0 pointer-events-none">
               <div v-for="(st, idx) in slotStyles" :key="idx" class="absolute" :style="st">
                 <!-- Captured shot stays in its slot -->
@@ -56,8 +67,6 @@
                   alt="Captured"
                 />
 
-                <!-- If empty slot, show faint placeholder (so frame doesn't look "holey") -->
-                <!-- If empty slot and NOT active -> show faint placeholder -->
                 <div
                   v-else-if="idx !== activeSlotIndex"
                   class="absolute inset-0 bg-white/35"
@@ -90,22 +99,18 @@
             </div>
           </div>
 
-          <div class="mt-4 flex items-center justify-center gap-3">
+          <div class="mt-4 flex flex-col items-center justify-center">
+            <div v-if="isRunning" class="mb-2 text-center text-sm text-black-500 font-medium">
+              <i class="fas fa-circle-notch fa-spin"></i> Capturing...
+            </div>
+            
             <button
-              class="px-6 py-3 rounded-full bg-emerald-500 text-white font-bold hover:bg-emerald-600 disabled:opacity-50"
+              class="w-16 h-16 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 transition-all hover:scale-105 flex items-center justify-center"
               @click="startSequence"
               :disabled="!cameraReady || isRunning"
+              :title="isRunning ? 'Capturing...' : 'Start capture'"
             >
-              {{ isRunning ? "Capturing..." : "Start" }}
-            </button>
-
-            <button
-              class="px-6 py-3 rounded-full bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
-              @click="flipCamera"
-              :disabled="isRunning"
-              title="Try switching front/back camera"
-            >
-              Flip
+              <i class="fas fa-camera text-2xl"></i>
             </button>
           </div>
 
@@ -142,7 +147,7 @@ const settings = reactive<Settings>(loadSettings());
 const FRAME_W = 1080;
 const FRAME_H = 1920;
 
-/** MUST match ResultView + layout.ts */
+// MUST match ResultView + layout.ts
 const LAYOUT = {
   outerPad: 44,
   gap: 26,
@@ -219,20 +224,16 @@ async function startCamera() {
   }
 
   try {
-    // Use more flexible constraints for mobile
     const constraints: MediaStreamConstraints = {
       video: {
         facingMode: facingMode.value,
-        // Remove width/height constraints and use aspectRatio only
         aspectRatio: { ideal: 3 / 4 },
-        // Allow browser to choose optimal resolution
         width: { ideal: 1920 },
         height: { ideal: 1080 },
       },
       audio: false,
     };
 
-    // Try with constraints, if fails try with minimal constraints
     let stream;
     try {
       stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -263,21 +264,12 @@ async function startCamera() {
       v.addEventListener("loadedmetadata", onReady);
       v.addEventListener("error", onError);
       
-      // Safety timeout
       setTimeout(() => {
         if (v.readyState >= 1) resolve();
       }, 3000);
     });
 
     cameraReady.value = true;
-    
-    // Log video dimensions for debugging
-    console.log("Video dimensions:", {
-      width: videoEl.value.videoWidth,
-      height: videoEl.value.videoHeight,
-      aspectRatio: videoEl.value.videoWidth / videoEl.value.videoHeight
-    });
-
   } catch (err: any) {
     errorMsg.value =
       err?.name === "NotAllowedError"
@@ -288,7 +280,7 @@ async function startCamera() {
 }
 
 function goBack() {
-  router.push("/");
+  router.push("/settings");
 }
 
 async function flipCamera() {
@@ -350,10 +342,7 @@ async function captureOneShot(_: number): Promise<string> {
   const ctx = shotCanvas.getContext("2d");
   if (!ctx) throw new Error("Shot canvas context missing");
 
-  // draw (mirrored if user cam) — keep your existing drawVideoCoverToCanvas
   drawVideoCoverToCanvas(ctx, v, outW, outH, settings.filter);
-
-  // ✅ mobile-safe filter fallback (works even if ctx.filter didn’t apply)
   applyPixelFilter(ctx, settings.filter, outW, outH);
 
   return shotCanvas.toDataURL("image/jpeg", 0.92);
@@ -425,7 +414,6 @@ function applyPixelFilter(ctx: CanvasRenderingContext2D, mode: FilterMode, w: nu
       d[i] = y;
       d[i + 1] = y;
       d[i + 2] = y;
-      // alpha stays as-is
     }
   } else if (mode === "sepia") {
     for (let i = 0; i < d.length; i += 4) {

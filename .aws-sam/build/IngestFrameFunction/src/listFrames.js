@@ -32,12 +32,16 @@ export const handler = async () => {
         })
     );
 
-    const items = (resp.Items || []).map((it) => ({
+    const items = (resp.Items || [])
+    .map((it) => ({
         s3Key: it.s3Key,
-        name: it.name ? toCamelCase(it.name) : toCamelCase(it.s3Key.split('/').pop()),
+        name: it.name
+        ? toCamelCase(it.name)
+        : toCamelCase(it.s3Key.split("/").pop()),
         createdAt: it.createdAt ?? null,
         url: `https://${cfDomain}/${it.s3Key}`,
-    }));
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
     return {
         statusCode: 200,

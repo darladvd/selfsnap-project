@@ -1,14 +1,19 @@
 <template>
-  <div class="min-h-screen bg-sky-200 flex items-center justify-center p-4">
+  <div class="min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-xl">
       <div class="bg-white/90 rounded-3xl shadow-xl p-6">
         <div class="flex items-center justify-between mb-4">
-          <h1 class="text-2xl font-extrabold">Result</h1>
+          <h2 class="text-2xl font-bold flex items-center gap-2">
+            <span aria-hidden="true">💙</span>
+            Result
+          </h2>
+
           <button
-            class="px-4 py-2 rounded-full bg-white border border-slate-200 hover:bg-slate-50"
+            class="p-3 rounded-full bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
             @click="tryAgain"
+            title="Try again"
           >
-            Try Again
+            <i class="fas fa-arrow-rotate-left text-slate-800"></i>
           </button>
         </div>
 
@@ -18,27 +23,39 @@
           </div>
         </div>
 
-        <div class="mt-6 flex flex-col gap-3">
-        <!-- Share (shows if supported) -->
-        <button
-            v-if="canShare"
-            class="w-full py-3 rounded-full bg-emerald-600 text-white font-bold hover:bg-emerald-700 disabled:opacity-50"
-            :disabled="!composedUrl || isSharing"
-            @click="share"
-        >
-            {{ isSharing ? "Sharing..." : "Share" }}
-        </button>
-
-        <!-- Download (always available fallback) -->
-        <button
-            class="w-full py-3 rounded-full bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50"
+        <div class="mt-6 flex flex-col sm:flex-row gap-3">
+          <button
+            class="flex-1 py-3 rounded-full bg-blue-500 text-white font-bold hover:bg-blue-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             :disabled="!composedUrl"
             @click="download"
-        >
-            Download
-        </button>
+          >
+            <i class="fas fa-download"></i>
+            <span>DOWNLOAD</span>
+          </button>
+
+          <button
+            v-if="canShare"
+            class="flex-1 py-3 rounded-full bg-emerald-500 text-white font-bold hover:bg-emerald-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            :disabled="!composedUrl || isSharing"
+            @click="share"
+          >
+            <i v-if="!isSharing" class="fas fa-share"></i>
+            <i v-else class="fas fa-circle-notch fa-spin"></i>
+            <span>{{ isSharing ? "Sharing..." : "SHARE" }}</span>
+          </button>
         </div>
 
+        <!-- Alternative if sharing not supported -->
+        <div v-if="!canShare" class="mt-6">
+          <button
+            class="w-full py-3 rounded-full bg-emerald-500 text-white font-bold hover:bg-emerald-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            :disabled="!composedUrl"
+            @click="download"
+          >
+            <i class="fas fa-download"></i>
+            <span>DOWNLOAD</span>
+          </button>
+        </div>
 
         <p v-if="errorMsg" class="mt-3 text-sm text-red-600 text-center">{{ errorMsg }}</p>
       </div>
@@ -50,6 +67,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { compute4GridSlots } from "@/lib/layout";
+import { pickTextColorFromRegion } from "@/lib/canvasColor";
 
 type FilterMode = "none" | "bw" | "sepia";
 type Settings = {
@@ -175,7 +193,7 @@ async function compose() {
     ctx.fillRect(0, 0, W, H);
   }
 
-  // slots (must match booth)
+  // slots (must match layout)
   const slots = compute4GridSlots(W, H, {
     outerPad: 44,
     gap: 26,
@@ -185,7 +203,7 @@ async function compose() {
     footerH: 220,
   });
 
-  // draw shots (sharp rectangles)
+  // draw shots
   for (let i = 0; i < 4; i++) {
     const shotSrc = shots.value[i];
     const slot = slots[i];
@@ -202,18 +220,31 @@ async function compose() {
     ctx.restore();
   }
 
-  // footer text (higher)
+  const sampleX = Math.floor(W * 0.15);
+  const sampleW = Math.floor(W * 0.70);
+  const sampleY = H - 320;
+  const sampleH = 240;
+
+  const footerTextColor = pickTextColorFromRegion(ctx, sampleX, sampleY, sampleW, sampleH);
+
   ctx.save();
-  ctx.fillStyle = "#111827";
+
   ctx.textAlign = "center";
+  ctx.fillStyle = footerTextColor;
+
+  //Drop Shadow
+  // ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
+  // ctx.shadowBlur = 6;
+  // ctx.shadowOffsetX = 0;
+  // ctx.shadowOffsetY = 2;
 
   ctx.font = "bold 96px system-ui, -apple-system, Segoe UI, Roboto, Arial";
   ctx.fillText("SelfSnap!", W / 2, H - 220);
 
-  ctx.font = "600 54px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.font = "500 54px system-ui, -apple-system, Segoe UI, Roboto, Arial";
   ctx.fillText(dateStr.value, W / 2, H - 150);
-  ctx.restore();
 
+  ctx.restore();
   composedUrl.value = canvas.toDataURL("image/png");
 }
 
@@ -256,23 +287,20 @@ async function share() {
 
     const nav: any = navigator;
 
-    // If Safari supports sharing files, do it and STOP.
     if (typeof nav.canShare === "function" && nav.canShare({ files: [file] })) {
       await nav.share({
         files: [file],
         title: "SelfSnap!",
         text: `SelfSnap ${dateStr.value}`,
       });
-      return; // ✅ prevents download after a successful share
+      return;
     }
 
     // If file sharing isn't supported, fallback to download
     await download();
   } catch (err: any) {
-    // User pressed "Cancel" → do nothing (no download)
     if (err?.name === "AbortError") return;
 
-    // Real error → fallback to download
     await download();
   } finally {
     isSharing.value = false;

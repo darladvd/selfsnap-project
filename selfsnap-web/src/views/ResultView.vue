@@ -219,7 +219,7 @@ async function compose() {
     drawCover(ctx, shotImg, slot.x, slot.y, slot.w, slot.h, settings.filter);
     ctx.restore();
   }
-  
+
   const sampleX = Math.floor(W * 0.15);
   const sampleW = Math.floor(W * 0.70);
   const sampleY = H - 320;
@@ -228,23 +228,23 @@ async function compose() {
   const footerTextColor = pickTextColorFromRegion(ctx, sampleX, sampleY, sampleW, sampleH);
 
   ctx.save();
+
   ctx.textAlign = "center";
   ctx.fillStyle = footerTextColor;
 
-  // optional: add a subtle outline for extra safety on “busy” frames
-  ctx.lineWidth = 10;
-  ctx.strokeStyle = footerTextColor === "#FFFFFF" ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.35)";
+  //Drop Shadow
+  // ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
+  // ctx.shadowBlur = 6;
+  // ctx.shadowOffsetX = 0;
+  // ctx.shadowOffsetY = 2;
 
   ctx.font = "bold 96px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-  ctx.strokeText("SelfSnap!", W / 2, H - 220);
   ctx.fillText("SelfSnap!", W / 2, H - 220);
 
   ctx.font = "500 54px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-  ctx.strokeText(dateStr.value, W / 2, H - 150);
   ctx.fillText(dateStr.value, W / 2, H - 150);
 
   ctx.restore();
-
   composedUrl.value = canvas.toDataURL("image/png");
 }
 

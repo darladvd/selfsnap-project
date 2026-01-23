@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-sky-200 p-6">
+  <div class="min-h-screen p-6">
     <div class="mx-auto max-w-5xl grid gap-6 md:grid-cols-2">
       <!-- Settings -->
       <div class="self-start rounded-3xl bg-white p-6 shadow">
@@ -28,6 +28,7 @@
           <div>
             <label class="text-sm font-semibold">Timer</label>
             <select v-model.number="timerSeconds" class="mt-1 w-full rounded-xl border p-3">
+              <option :value="1">1 second</option>
               <option :value="3">3 seconds</option>
               <option :value="5">5 seconds</option>
               <option :value="10">10 seconds</option>
