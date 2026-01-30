@@ -4,7 +4,9 @@
 
 It’s designed to feel like a real photo booth: fixed framing, timed captures, no retakes — optimized for **mobile and desktop**.
 
-## [Try It Now](https://selfsnap.darladavid.com/)
+### [Try It Now](https://selfsnap.darladavid.com/)
+### [Watch the Video](https://youtu.be/dKt2zKtm6m0)
+### [Read More](https://builder.aws.com/content/38xEmQgKgi1OXvVR6diRaDkJqsz/aws-ai-a-killer-combo-to-build-an-app-in-one-day)
 
 ---
 
