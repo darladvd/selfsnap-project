@@ -80,7 +80,6 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { compute4GridSlots } from "@/lib/layout";
-import { pickTextColorFromRegion } from "@/lib/canvasColor";
 
 type FilterMode = "none" | "bw" | "sepia";
 type Settings = {
@@ -98,10 +97,16 @@ const errorMsg = ref<string>("");
 const shots = ref<string[]>(loadShots());
 const settings = reactive<Settings>(loadSettings());
 
-const dateStr = computed(() => formatMMDDYYYY(new Date()));
-
 const isSharing = ref(false);
 const isPrinting = ref(false);
+
+const fileDate = (() => {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const yy = String(d.getFullYear());
+  return `${mm}-${dd}-${yy}`;
+})();
 
 function loadSettings(): Settings {
   try {
@@ -120,13 +125,6 @@ function loadShots(): string[] {
     }
   } catch {}
   return [];
-}
-
-function formatMMDDYYYY(d: Date) {
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const yy = String(d.getFullYear());
-  return `${mm}-${dd}-${yy}`;
 }
 
 function canvasFilterString(mode: FilterMode) {
@@ -234,31 +232,7 @@ async function compose() {
     ctx.restore();
   }
 
-  const sampleX = Math.floor(W * 0.15);
-  const sampleW = Math.floor(W * 0.70);
-  const sampleY = H - 320;
-  const sampleH = 240;
-
-  const footerTextColor = pickTextColorFromRegion(ctx, sampleX, sampleY, sampleW, sampleH);
-
-  ctx.save();
-
-  ctx.textAlign = "center";
-  ctx.fillStyle = footerTextColor;
-
-  //Drop Shadow
-  // ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
-  // ctx.shadowBlur = 6;
-  // ctx.shadowOffsetX = 0;
-  // ctx.shadowOffsetY = 2;
-
-  ctx.font = "bold 96px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-  ctx.fillText("SelfSnap!", W / 2, H - 220);
-
-  ctx.font = "500 54px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-  ctx.fillText(dateStr.value, W / 2, H - 150);
-
-  ctx.restore();
+  // No footer text — frame handles branding
   composedUrl.value = canvas.toDataURL("image/png");
 }
 
@@ -271,7 +245,7 @@ async function download() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `selfsnap-${dateStr.value}.png`;
+    a.download = `selfsnap-${fileDate}.png`;
     a.click();
     URL.revokeObjectURL(url);
   }, "image/png");
@@ -296,7 +270,7 @@ async function share() {
       );
     });
 
-    const fileName = `selfsnap-${dateStr.value}.png`;
+    const fileName = `selfsnap-${fileDate}.png`;
     const file = new File([blob], fileName, { type: "image/png" });
 
     const nav: any = navigator;
@@ -305,7 +279,7 @@ async function share() {
       await nav.share({
         files: [file],
         title: "SelfSnap!",
-        text: `SelfSnap ${dateStr.value}`,
+        text: `SelfSnap ${fileDate}`,
       });
       return;
     }

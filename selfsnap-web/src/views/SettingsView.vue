@@ -7,16 +7,6 @@
 
         <div class="mt-6 space-y-4">
           <div>
-            <label class="text-sm font-semibold">Frame</label>
-            <select v-model="selectedFrameKey" class="mt-1 w-full rounded-xl border p-3">
-              <option value="" disabled>Select a frame...</option>
-              <option v-for="f in frames" :key="f.s3Key" :value="f.s3Key">
-                {{ f.name ?? f.s3Key }}
-              </option>
-            </select>
-          </div>
-
-          <div>
             <label class="text-sm font-semibold">Filter</label>
             <select v-model="filter" class="mt-1 w-full rounded-xl border p-3">
               <option value="none">None</option>
@@ -38,10 +28,11 @@
           <div>
             <label class="text-sm font-semibold">How to Use</label>
             <p class="mt-2 text-sm text-gray-600">
-              Wait for the timer, then smile! No retakes. Don’t forget to download your photo — we don’t store anything.
+              Wait for the timer, then smile! No retakes. Don't forget to download or print your photo — we don't store anything.
             </p>
             <label class="mt-3 flex items-center gap-2 text-sm">
-              <input type="checkbox" v-model="understand" /> I understand. </label>
+              <input type="checkbox" v-model="understand" /> I understand.
+            </label>
           </div>
 
           <button
@@ -51,28 +42,20 @@
           >
             GO
           </button>
-
-          <div v-if="error" class="text-sm text-red-600">{{ error }}</div>
         </div>
       </div>
 
       <!-- Preview -->
       <div class="rounded-3xl bg-white p-6 shadow">
-        <div class="text-sm text-gray-500">Preview</div>
+        <div class="text-sm text-gray-500">Frame Preview</div>
 
         <div class="mt-3 flex justify-center">
           <img
-            v-if="selectedFrame?.url"
-            :src="selectedFrame.url"
+            :src="frameUrl"
             class="max-h-[70vh] w-auto rounded-xl border"
             alt="Frame preview"
           />
-          <div v-else class="h-[70vh] w-full rounded-xl border flex items-center justify-center text-gray-400">
-            Select a frame to preview
-          </div>
         </div>
-
-        <div class="mt-4 text-xs text-gray-500" v-if="loading">Loading frames...</div>
       </div>
     </div>
   </div>
@@ -82,22 +65,19 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
-type Frame = { s3Key: string; name?: string | null; createdAt?: string | null; url: string };
 type FilterMode = "none" | "bw" | "sepia";
 type StoredSettings = { frameUrl: string; filter: FilterMode; timerSeconds: number };
 
 const router = useRouter();
-const frames = ref<Frame[]>([]);
-const loading = ref(false);
-const error = ref<string | null>(null);
 
-const selectedFrameKey = ref("");
+// Hardcoded event frame
+const frameUrl = "/aws-screen-frame.png";
+
 const filter = ref<FilterMode>("none");
 const timerSeconds = ref<number>(3);
 const understand = ref(false);
 
-const selectedFrame = computed(() => frames.value.find((f) => f.s3Key === selectedFrameKey.value));
-const canGo = computed(() => understand.value && !!selectedFrame.value);
+const canGo = computed(() => understand.value);
 
 function readStoredSettings(): Partial<StoredSettings> {
   try {
@@ -105,7 +85,6 @@ function readStoredSettings(): Partial<StoredSettings> {
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     return {
-      frameUrl: typeof parsed.frameUrl === "string" ? parsed.frameUrl : "",
       filter: (["none", "bw", "sepia"].includes(parsed.filter) ? parsed.filter : "none") as FilterMode,
       timerSeconds: typeof parsed.timerSeconds === "number" ? parsed.timerSeconds : 3,
     };
@@ -114,38 +93,9 @@ function readStoredSettings(): Partial<StoredSettings> {
   }
 }
 
-async function loadFrames() {
-  loading.value = true;
-  error.value = null;
-
-  try {
-    const base = import.meta.env.VITE_API_BASE;
-    if (!base) throw new Error("Missing VITE_API_BASE in .env.local");
-
-    const res = await fetch(`${base}/frames`, { cache: "no-store" });
-    if (!res.ok) throw new Error(`Frames API error: ${res.status}`);
-
-    const data = await res.json();
-    frames.value = (data.frames ?? []).filter((f: Frame) => f?.s3Key && !f.s3Key.endsWith("/"));
-
-    // After frames load, try to restore the previously selected frame by URL match
-    const stored = readStoredSettings();
-    if (stored.frameUrl) {
-      const match = frames.value.find((f) => f.url === stored.frameUrl);
-      if (match) selectedFrameKey.value = match.s3Key;
-    }
-  } catch (e: any) {
-    error.value = e?.message ?? "Failed to load frames.";
-  } finally {
-    loading.value = false;
-  }
-}
-
 function go() {
-  if (!selectedFrame.value) return;
-
   const payload: StoredSettings = {
-    frameUrl: selectedFrame.value.url,
+    frameUrl,
     filter: filter.value,
     timerSeconds: timerSeconds.value,
   };
@@ -158,7 +108,5 @@ onMounted(() => {
   const stored = readStoredSettings();
   if (stored.filter) filter.value = stored.filter;
   if (stored.timerSeconds) timerSeconds.value = stored.timerSeconds;
-
-  loadFrames();
 });
 </script>
