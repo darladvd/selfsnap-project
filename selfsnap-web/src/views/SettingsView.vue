@@ -45,15 +45,33 @@
         </div>
       </div>
 
-      <!-- Preview -->
+      <!-- Preview Carousel -->
       <div class="rounded-3xl bg-white p-6 shadow">
-        <div class="text-sm text-gray-500">Frame Preview</div>
+        <div class="flex items-center justify-between">
+          <button
+            class="p-2 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-30"
+            :disabled="previewIndex === 0"
+            @click="previewIndex--"
+          >
+            <i class="fas fa-chevron-left text-slate-700"></i>
+          </button>
+
+          <span class="text-sm font-medium text-gray-600">{{ activePreview.label }}</span>
+
+          <button
+            class="p-2 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-30"
+            :disabled="previewIndex === previews.length - 1"
+            @click="previewIndex++"
+          >
+            <i class="fas fa-chevron-right text-slate-700"></i>
+          </button>
+        </div>
 
         <div class="mt-3 flex justify-center">
           <img
-            :src="frameUrl"
+            :src="activePreview.src"
             class="max-h-[70vh] w-auto rounded-xl border"
-            alt="Frame preview"
+            :alt="activePreview.label"
           />
         </div>
       </div>
@@ -72,6 +90,13 @@ const router = useRouter();
 
 // Hardcoded event frame
 const frameUrl = "/aws-screen-frame.png";
+
+const previews = [
+  { label: "Screen Preview", src: "/aws-screen-preview.png" },
+  { label: "Print Preview", src: "/aws-print-preview.png" },
+];
+const previewIndex = ref(0);
+const activePreview = computed(() => previews[previewIndex.value]!);
 
 const filter = ref<FilterMode>("none");
 const timerSeconds = ref<number>(3);
