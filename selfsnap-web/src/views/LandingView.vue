@@ -5,7 +5,7 @@
         SelfSnap!
       </h1>
       <p class="mt-2 text-lg text-slate-700">
-        Your snap, your story.
+        AWS Community Day 2026
       </p>
 
     <button
