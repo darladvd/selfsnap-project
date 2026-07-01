@@ -219,14 +219,6 @@ async function compose() {
 
   // No footer text — frame handles branding
 
-  // Date at the bottom
-  ctx.save();
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#333333";
-  ctx.font = "bold 48px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-  ctx.fillText(fileDate, W / 2, H - 80);
-  ctx.restore();
-
   composedUrl.value = canvas.toDataURL("image/png");
 }
 
@@ -348,7 +340,7 @@ async function printPhoto() {
       const dateY = lastSlot.y + lastSlot.h + 60;
       pCtx.save();
       pCtx.textAlign = "center";
-      pCtx.fillStyle = "#333333";
+      pCtx.fillStyle = "#FFFFFF";
       pCtx.font = "bold 40px system-ui, -apple-system, Segoe UI, Roboto, Arial";
       pCtx.fillText(fileDate, offsetX + STRIP_W / 2, dateY);
       pCtx.restore();
