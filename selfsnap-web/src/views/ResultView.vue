@@ -349,6 +349,16 @@ async function printPhoto() {
         drawCover(pCtx, img, offsetX + slot.x, slot.y, slot.w, slot.h, settings.filter);
         pCtx.restore();
       }
+
+      // Draw date at the bottom of the strip
+      const lastSlot = stripSlots[2]!;
+      const dateY = lastSlot.y + lastSlot.h + 60;
+      pCtx.save();
+      pCtx.textAlign = "center";
+      pCtx.fillStyle = "#333333";
+      pCtx.font = "500 36px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      pCtx.fillText(fileDate, offsetX + STRIP_W / 2, dateY);
+      pCtx.restore();
     }
 
     const printDataUrl = printCanvas.toDataURL("image/png");
