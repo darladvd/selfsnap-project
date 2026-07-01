@@ -23,20 +23,8 @@
           </div>
         </div>
 
-        <!-- Print button (primary action for kiosk) -->
-        <div class="mt-6">
-          <button
-            class="w-full py-4 rounded-full bg-purple-600 text-white font-bold text-lg hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 print:hidden"
-            :disabled="!composedUrl || isPrinting"
-            @click="printPhoto"
-          >
-            <i v-if="!isPrinting" class="fas fa-print"></i>
-            <i v-else class="fas fa-circle-notch fa-spin"></i>
-            <span>{{ isPrinting ? "PRINTING..." : "PRINT" }}</span>
-          </button>
-        </div>
-
-        <div class="mt-3 flex flex-col sm:flex-row gap-3">
+        <!-- Primary CTAs: Download & Share -->
+        <div class="mt-6 flex flex-col sm:flex-row gap-3">
           <button
             class="flex-1 py-3 rounded-full bg-blue-500 text-white font-bold hover:bg-blue-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             :disabled="!composedUrl"
@@ -58,15 +46,16 @@
           </button>
         </div>
 
-        <!-- Alternative if sharing not supported -->
-        <div v-if="!canShare" class="mt-3">
+        <!-- Secondary: Print (for kiosk staff) -->
+        <div class="mt-3 flex justify-center">
           <button
-            class="w-full py-3 rounded-full bg-emerald-500 text-white font-bold hover:bg-emerald-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-            :disabled="!composedUrl"
-            @click="download"
+            class="py-2 px-4 text-sm text-slate-500 hover:text-slate-700 disabled:opacity-50 transition-colors flex items-center gap-1 print:hidden"
+            :disabled="!composedUrl || isPrinting"
+            @click="printPhoto"
           >
-            <i class="fas fa-download"></i>
-            <span>DOWNLOAD</span>
+            <i v-if="!isPrinting" class="fas fa-print"></i>
+            <i v-else class="fas fa-circle-notch fa-spin"></i>
+            <span>{{ isPrinting ? "Printing..." : "Print" }}</span>
           </button>
         </div>
 
@@ -229,6 +218,15 @@ async function compose() {
   }
 
   // No footer text — frame handles branding
+
+  // Date at the bottom
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#333333";
+  ctx.font = "bold 48px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.fillText(fileDate, W / 2, H - 80);
+  ctx.restore();
+
   composedUrl.value = canvas.toDataURL("image/png");
 }
 
