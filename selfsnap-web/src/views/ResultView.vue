@@ -23,7 +23,20 @@
           </div>
         </div>
 
-        <div class="mt-6 flex flex-col sm:flex-row gap-3">
+        <!-- Print button (primary action for kiosk) -->
+        <div class="mt-6">
+          <button
+            class="w-full py-4 rounded-full bg-purple-600 text-white font-bold text-lg hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 print:hidden"
+            :disabled="!composedUrl || isPrinting"
+            @click="printPhoto"
+          >
+            <i v-if="!isPrinting" class="fas fa-print"></i>
+            <i v-else class="fas fa-circle-notch fa-spin"></i>
+            <span>{{ isPrinting ? "PRINTING..." : "PRINT" }}</span>
+          </button>
+        </div>
+
+        <div class="mt-3 flex flex-col sm:flex-row gap-3">
           <button
             class="flex-1 py-3 rounded-full bg-blue-500 text-white font-bold hover:bg-blue-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             :disabled="!composedUrl"
@@ -46,7 +59,7 @@
         </div>
 
         <!-- Alternative if sharing not supported -->
-        <div v-if="!canShare" class="mt-6">
+        <div v-if="!canShare" class="mt-3">
           <button
             class="w-full py-3 rounded-full bg-emerald-500 text-white font-bold hover:bg-emerald-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             :disabled="!composedUrl"
@@ -88,6 +101,7 @@ const settings = reactive<Settings>(loadSettings());
 const dateStr = computed(() => formatMMDDYYYY(new Date()));
 
 const isSharing = ref(false);
+const isPrinting = ref(false);
 
 function loadSettings(): Settings {
   try {
@@ -304,6 +318,78 @@ async function share() {
     await download();
   } finally {
     isSharing.value = false;
+  }
+}
+
+async function printPhoto() {
+  const canvas = canvasEl.value;
+  if (!canvas || !composedUrl.value) return;
+
+  isPrinting.value = true;
+
+  try {
+    const dataUrl = composedUrl.value;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      errorMsg.value = "Pop-up blocked. Please allow pop-ups for printing.";
+      return;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>SelfSnap Print</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            html, body { width: 100%; height: 100%; }
+            @page {
+              size: 4in 6in;
+              margin: 0;
+            }
+            body {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            img {
+              max-width: 100%;
+              max-height: 100%;
+              object-fit: contain;
+            }
+          </style>
+        </head>
+        <body>
+          <img src="${dataUrl}" />
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+
+    // Wait for image to load in print window
+    await new Promise<void>((resolve) => {
+      const img = printWindow.document.querySelector("img");
+      if (img?.complete) {
+        resolve();
+      } else {
+        img?.addEventListener("load", () => resolve());
+        // Fallback timeout
+        setTimeout(resolve, 2000);
+      }
+    });
+
+    printWindow.focus();
+    printWindow.print();
+
+    // Close print window after a delay (gives print dialog time to appear)
+    setTimeout(() => {
+      printWindow.close();
+    }, 1000);
+  } catch (err: any) {
+    errorMsg.value = `Print failed: ${err?.message ?? String(err)}`;
+  } finally {
+    isPrinting.value = false;
   }
 }
 
