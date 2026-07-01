@@ -197,14 +197,9 @@ async function compose() {
     return;
   }
 
-  // background
-  if (settings.frameUrl) {
-    const frameImg = await loadImage(settings.frameUrl);
-    ctx.drawImage(frameImg, 0, 0, W, H);
-  } else {
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fillRect(0, 0, W, H);
-  }
+  // background — always use the event frame
+  const frameImg = await loadImage("/aws-screen-frame.png");
+  ctx.drawImage(frameImg, 0, 0, W, H);
 
   // slots (must match layout)
   const slots = compute4GridSlots(W, H, {
@@ -356,7 +351,7 @@ async function printPhoto() {
       pCtx.save();
       pCtx.textAlign = "center";
       pCtx.fillStyle = "#333333";
-      pCtx.font = "500 36px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      pCtx.font = "bold 40px system-ui, -apple-system, Segoe UI, Roboto, Arial";
       pCtx.fillText(fileDate, offsetX + STRIP_W / 2, dateY);
       pCtx.restore();
     }

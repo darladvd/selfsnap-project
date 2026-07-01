@@ -32,8 +32,7 @@
           <div class="relative w-full aspect-[9/16] overflow-hidden rounded-3xl bg-slate-100 shadow-lg">
             <!-- Background frame -->
             <img
-              v-if="settings.frameUrl"
-              :src="settings.frameUrl"
+              src="/aws-screen-frame.png"
               class="absolute inset-0 w-full h-full object-cover"
               alt="Frame background"
             />
