@@ -80,6 +80,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { compute4GridSlots } from "@/lib/layout";
+import { computePrintStripSlots } from "@/lib/printLayout";
 
 type FilterMode = "none" | "bw" | "sepia";
 type Settings = {
@@ -296,13 +297,61 @@ async function share() {
 }
 
 async function printPhoto() {
-  const canvas = canvasEl.value;
-  if (!canvas || !composedUrl.value) return;
+  if (!composedUrl.value) return;
 
   isPrinting.value = true;
 
   try {
-    const dataUrl = composedUrl.value;
+    // Compose a 4x6 print canvas (2400 x 3600 px at 600dpi)
+    // Two identical 2x6 strips side by side
+    const STRIP_W = 1200;
+    const STRIP_H = 3600;
+    const PRINT_W = 2400;
+    const PRINT_H = 3600;
+
+    const printCanvas = document.createElement("canvas");
+    printCanvas.width = PRINT_W;
+    printCanvas.height = PRINT_H;
+    const pCtx = printCanvas.getContext("2d");
+    if (!pCtx) throw new Error("Print canvas context missing");
+
+    // Load the print frame
+    const frameImg = await loadImage("/aws-print-frame.png");
+
+    // Get print strip photo slots
+    const stripSlots = computePrintStripSlots(STRIP_W, STRIP_H);
+
+    // Load first 3 shots
+    const shotImgs: HTMLImageElement[] = [];
+    for (let i = 0; i < 3; i++) {
+      const src = shots.value[i];
+      if (!src) throw new Error(`Missing shot ${i + 1}`);
+      shotImgs.push(await loadImage(src));
+    }
+
+    // Draw two identical strips side by side
+    for (let strip = 0; strip < 2; strip++) {
+      const offsetX = strip * STRIP_W;
+
+      // Draw frame background for this strip
+      pCtx.drawImage(frameImg, offsetX, 0, STRIP_W, STRIP_H);
+
+      // Draw 3 photos into slots
+      for (let i = 0; i < 3; i++) {
+        const slot = stripSlots[i]!;
+        const img = shotImgs[i]!;
+
+        pCtx.save();
+        pCtx.beginPath();
+        pCtx.rect(offsetX + slot.x, slot.y, slot.w, slot.h);
+        pCtx.clip();
+
+        drawCover(pCtx, img, offsetX + slot.x, slot.y, slot.w, slot.h, settings.filter);
+        pCtx.restore();
+      }
+    }
+
+    const printDataUrl = printCanvas.toDataURL("image/png");
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
@@ -328,27 +377,25 @@ async function printPhoto() {
               justify-content: center;
             }
             img {
-              max-width: 100%;
-              max-height: 100%;
-              object-fit: contain;
+              width: 100%;
+              height: 100%;
+              object-fit: fill;
             }
           </style>
         </head>
         <body>
-          <img src="${dataUrl}" />
+          <img src="${printDataUrl}" />
         </body>
       </html>
     `);
     printWindow.document.close();
 
-    // Wait for image to load in print window
     await new Promise<void>((resolve) => {
       const img = printWindow.document.querySelector("img");
       if (img?.complete) {
         resolve();
       } else {
         img?.addEventListener("load", () => resolve());
-        // Fallback timeout
         setTimeout(resolve, 2000);
       }
     });
@@ -356,7 +403,6 @@ async function printPhoto() {
     printWindow.focus();
     printWindow.print();
 
-    // Close print window after a delay (gives print dialog time to appear)
     setTimeout(() => {
       printWindow.close();
     }, 1000);
