@@ -56,7 +56,7 @@
             <i class="fas fa-chevron-left text-slate-700"></i>
           </button>
 
-          <span class="text-sm font-medium text-gray-600">{{ activePreview.label }}</span>
+          <span class="text-sm font-semibold">{{ activePreview.label }}</span>
 
           <button
             class="p-2 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-30"
