@@ -21,8 +21,8 @@ export const handler = async (event) => {
   const dateFolder = now.toISOString().slice(0, 10);
 
   // Unique filename using timestamp
-  const ts = now.toISOString().replace(/[-:T]/g, "").slice(0, 15);
-  const key = `${dateFolder}/selfsnap-${ts}-${type}.png`;
+  const ts = now.toISOString().replace(/[-:T.]/g, "").slice(0, 14);
+  const key = `${dateFolder}/${type}/selfsnap-${ts}.png`;
 
   const command = new PutObjectCommand({
     Bucket: bucket,
