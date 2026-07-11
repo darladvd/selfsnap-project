@@ -70,6 +70,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { compute4GridSlots } from "@/lib/layout";
 import { computePrintStripSlots } from "@/lib/printLayout";
+import { uploadPhoto } from "@/lib/upload";
 
 type FilterMode = "none" | "bw" | "sepia";
 type Settings = {
@@ -220,6 +221,11 @@ async function compose() {
   // No footer text — frame handles branding
 
   composedUrl.value = canvas.toDataURL("image/png");
+
+  // Background upload to S3 — non-blocking
+  uploadPhoto(canvas, "screen").catch((err) =>
+    console.warn("Screen upload failed:", err)
+  );
 }
 
 async function download() {
@@ -347,6 +353,11 @@ async function printPhoto() {
     }
 
     const printDataUrl = printCanvas.toDataURL("image/png");
+
+    // Background upload to S3 — non-blocking
+    uploadPhoto(printCanvas, "print").catch((err) =>
+      console.warn("Print upload failed:", err)
+    );
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
