@@ -28,7 +28,7 @@
           <div>
             <label class="text-sm font-semibold">How to Use</label>
             <p class="mt-2 text-sm text-gray-600">
-              Wait for the timer, then smile! No retakes. Don't forget to download or print your photo — we don't store anything.
+              Wait for the timer, then smile! No retakes. Don't forget to download or share your photo. By proceeding, you agree that your photo may be posted on our official Facebook page.
             </p>
             <label class="mt-3 flex items-center gap-2 text-sm">
               <input type="checkbox" v-model="understand" /> I understand.
