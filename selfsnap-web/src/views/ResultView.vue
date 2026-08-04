@@ -359,13 +359,28 @@ async function printPhoto() {
       console.warn("Print upload failed:", err)
     );
 
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      errorMsg.value = "Pop-up blocked. Please allow pop-ups for printing.";
+    // Use hidden iframe for printing (Safari blocks window.open popups)
+    let printFrame = document.getElementById("selfsnap-print-frame") as HTMLIFrameElement | null;
+    if (!printFrame) {
+      printFrame = document.createElement("iframe");
+      printFrame.id = "selfsnap-print-frame";
+      printFrame.style.position = "fixed";
+      printFrame.style.top = "-9999px";
+      printFrame.style.left = "-9999px";
+      printFrame.style.width = "0";
+      printFrame.style.height = "0";
+      printFrame.style.border = "none";
+      document.body.appendChild(printFrame);
+    }
+
+    const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+    if (!frameDoc) {
+      errorMsg.value = "Print failed: cannot access print frame.";
       return;
     }
 
-    printWindow.document.write(`
+    frameDoc.open();
+    frameDoc.write(`
       <!DOCTYPE html>
       <html>
         <head>
@@ -394,10 +409,10 @@ async function printPhoto() {
         </body>
       </html>
     `);
-    printWindow.document.close();
+    frameDoc.close();
 
     await new Promise<void>((resolve) => {
-      const img = printWindow.document.querySelector("img");
+      const img = frameDoc.querySelector("img");
       if (img?.complete) {
         resolve();
       } else {
@@ -406,12 +421,8 @@ async function printPhoto() {
       }
     });
 
-    printWindow.focus();
-    printWindow.print();
-
-    setTimeout(() => {
-      printWindow.close();
-    }, 1000);
+    printFrame.contentWindow?.focus();
+    printFrame.contentWindow?.print();
   } catch (err: any) {
     errorMsg.value = `Print failed: ${err?.message ?? String(err)}`;
   } finally {
