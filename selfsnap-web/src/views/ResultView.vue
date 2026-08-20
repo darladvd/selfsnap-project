@@ -142,7 +142,8 @@ function drawCover(
   y: number,
   w: number,
   h: number,
-  filter: FilterMode
+  filter: FilterMode,
+  anchorY: "center" | "top" = "center"
 ) {
   const iw = img.naturalWidth;
   const ih = img.naturalHeight;
@@ -152,7 +153,8 @@ function drawCover(
   const sh = h / scale;
 
   const sx = (iw - sw) / 2;
-  const sy = (ih - sh) / 2;
+  // "top" keeps the top of the source image and crops only the bottom
+  const sy = anchorY === "top" ? 0 : (ih - sh) / 2;
 
   ctx.save();
   ctx.filter = canvasFilterString(filter);
@@ -337,19 +339,19 @@ async function saveForPrinting() {
         pCtx.rect(offsetX + slot.x, slot.y, slot.w, slot.h);
         pCtx.clip();
 
-        drawCover(pCtx, img, offsetX + slot.x, slot.y, slot.w, slot.h, settings.filter);
+        // Top-anchored crop: always keep the top of the shot, crop the bottom
+        drawCover(
+          pCtx,
+          img,
+          offsetX + slot.x,
+          slot.y,
+          slot.w,
+          slot.h,
+          settings.filter,
+          "top"
+        );
         pCtx.restore();
       }
-
-      // Draw date at the bottom of the strip
-      const lastSlot = stripSlots[2]!;
-      const dateY = lastSlot.y + lastSlot.h + 60;
-      pCtx.save();
-      pCtx.textAlign = "center";
-      pCtx.fillStyle = "#FFFFFF";
-      pCtx.font = "bold 40px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-      pCtx.fillText(fileDate, offsetX + STRIP_W / 2, dateY);
-      pCtx.restore();
     }
 
     // Background upload to S3 — non-blocking
