@@ -46,16 +46,16 @@
           </button>
         </div>
 
-        <!-- Secondary: Print (for kiosk staff) -->
+        <!-- Secondary: Save for Printing (downloads print-layout image) -->
         <div class="mt-3 flex justify-center">
           <button
-            class="py-2 px-4 text-sm text-slate-500 hover:text-slate-700 disabled:opacity-50 transition-colors flex items-center gap-1 print:hidden"
+            class="py-2 px-4 text-sm text-slate-500 hover:text-slate-700 disabled:opacity-50 transition-colors flex items-center gap-1"
             :disabled="!composedUrl || isPrinting"
-            @click="printPhoto"
+            @click="saveForPrinting"
           >
             <i v-if="!isPrinting" class="fas fa-print"></i>
             <i v-else class="fas fa-circle-notch fa-spin"></i>
-            <span>{{ isPrinting ? "Printing..." : "Print" }}</span>
+            <span>{{ isPrinting ? "Saving..." : "Save for Printing" }}</span>
           </button>
         </div>
 
@@ -287,14 +287,14 @@ async function share() {
   }
 }
 
-async function printPhoto() {
+async function saveForPrinting() {
   if (!composedUrl.value) return;
 
   isPrinting.value = true;
 
   try {
     // Compose a 4x6 print canvas (2400 x 3600 px at 600dpi)
-    // Two identical 2x6 strips side by side
+    // Two identical 2x6 strips side by side, 3 photos each
     const STRIP_W = 1200;
     const STRIP_H = 3600;
     const PRINT_W = 2400;
@@ -352,79 +352,23 @@ async function printPhoto() {
       pCtx.restore();
     }
 
-    const printDataUrl = printCanvas.toDataURL("image/png");
-
     // Background upload to S3 — non-blocking
     uploadPhoto(printCanvas, "print").catch((err) =>
       console.warn("Print upload failed:", err)
     );
 
-    // Use hidden iframe for printing (Safari blocks window.open popups)
-    let printFrame = document.getElementById("selfsnap-print-frame") as HTMLIFrameElement | null;
-    if (!printFrame) {
-      printFrame = document.createElement("iframe");
-      printFrame.id = "selfsnap-print-frame";
-      printFrame.style.position = "fixed";
-      printFrame.style.top = "-9999px";
-      printFrame.style.left = "-9999px";
-      printFrame.style.width = "0";
-      printFrame.style.height = "0";
-      printFrame.style.border = "none";
-      document.body.appendChild(printFrame);
-    }
-
-    const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
-    if (!frameDoc) {
-      errorMsg.value = "Print failed: cannot access print frame.";
-      return;
-    }
-
-    frameDoc.open();
-    frameDoc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>SelfSnap Print</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            html, body { width: 100%; height: 100%; }
-            @page {
-              size: 4in 6in;
-              margin: 0;
-            }
-            body {
-              display: flex;
-              align-items: center;
-              justify-content: center;
-            }
-            img {
-              width: 100%;
-              height: 100%;
-              object-fit: fill;
-            }
-          </style>
-        </head>
-        <body>
-          <img src="${printDataUrl}" />
-        </body>
-      </html>
-    `);
-    frameDoc.close();
-
-    await new Promise<void>((resolve) => {
-      const img = frameDoc.querySelector("img");
-      if (img?.complete) {
-        resolve();
-      } else {
-        img?.addEventListener("load", () => resolve());
-        setTimeout(resolve, 2000);
-      }
-    });
-
-    printFrame.contentWindow?.focus();
-    printFrame.contentWindow?.print();
+    // Download the print image directly (no print dialog)
+    printCanvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `selfsnap-print-${fileDate}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, "image/png");
   } catch (err: any) {
-    errorMsg.value = `Print failed: ${err?.message ?? String(err)}`;
+    errorMsg.value = `Save failed: ${err?.message ?? String(err)}`;
   } finally {
     isPrinting.value = false;
   }
