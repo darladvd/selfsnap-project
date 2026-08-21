@@ -316,10 +316,11 @@ function drawVideoCoverToCanvas(
 
   ctx.save();
 
-  if (facingMode.value === "user") {
-    ctx.translate(outW, 0);
-    ctx.scale(-1, 1);
-  }
+  // No horizontal flip here on purpose.
+  // The live preview is mirrored (see the <video> transform) so framing feels
+  // natural, but the captured pixels keep the camera's true orientation so text
+  // in the scene (shirt logos, signage) stays readable in the final image and
+  // on the printed strips.
 
   ctx.filter = canvasFilterString(filterMode);
   ctx.drawImage(video, dx, dy, dw, dh);
